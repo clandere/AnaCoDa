@@ -1,0 +1,80 @@
+#loading
+useDynLib(AnaCoDa, .registration = TRUE)
+
+#imports
+importFrom(methods, new)
+importFrom(Rcpp, evalCpp)
+
+importFrom(graphics, abline, axis, box, grid, hist,
+      layout, legend, lines, pairs, par, plot,
+      points, segments, text)
+importFrom(stats, lm, median, qt, quantile, sd, acf)
+importFrom(utils, write.csv)
+
+S3method(length, Rcpp_Genome)
+S3method(summary, Rcpp_Genome)
+S3method(getCSPEstimates, Rcpp_Parameter)
+S3method(writeParameterObject, Rcpp_ROCParameter)
+S3method(writeParameterObject, Rcpp_PAParameter)
+S3method(writeParameterObject, Rcpp_PANSEParameter)
+S3method(writeParameterObject, Rcpp_FONSEParameter)
+S3method(convergence.test, Rcpp_MCMCAlgorithm)
+S3method(convergence.test, Rcpp_Trace)
+
+S3method(plot, Rcpp_ROCParameter)
+S3method(plot, Rcpp_FONSEParameter)
+S3method(plot, Rcpp_ROCModel)
+S3method(plot, Rcpp_FONSEModel)
+S3method(plot, Rcpp_MCMCAlgorithm)
+S3method(plot, Rcpp_Trace)
+
+
+#exports
+#exportPattern("^[[:alpha:]]+") #<- if commented out, only functions explicitly exported will be exposed 
+
+
+export(
+## Parameter object
+"initializeParameterObject",
+"getCSPEstimates",
+"getMixtureAssignmentEstimate",
+"getExpressionEstimatesForMixture",
+"writeParameterObject",
+"loadParameterObject",
+
+## Model object
+"initializeModelObject",
+
+## Genome object
+"initializeGenomeObject",
+"getCodonCountsForAA",
+"getNames",
+
+## MCMC object
+"initializeMCMCObject",
+"runMCMC",
+"setRestartSettings",
+"writeMCMCObject",
+"loadMCMCObject",
+
+## Trace object
+
+## shared functions
+"convergence.test",
+
+#Static C++ functions
+"AAToCodon",
+"aminoAcids",
+"codonToAA",
+"codons",
+
+##
+"acfMCMC",
+"acfCSP"
+
+)
+
+
+
+
+

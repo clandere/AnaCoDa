@@ -1,0 +1,22 @@
+# This directory, the empty .csv files, and this .gitignore file exists for a specific debugging reason.
+# 1) Output files can only be written to an existing directory.
+# 2) Due to git's structure, empty directories are not allowed.
+# 3) When running Travis.cl checks, while .pdf and .txt files can be created, .csv files cannot (they can, however, be written to as usual).
+
+# This file also lists the output files that are expected to be produced (but not necessarily included).
+# 
+# Note that there is some redundancy in what is ignored compared to the overall package as
+# a result.
+
+# testMCMCROC files
+testMCMCROCLogPhi.txt
+testMCMCROCLogWithoutPhi.txt
+
+# testPAModel files
+#RFPAlphaValues.csv
+RFPConfidenceIntervalsForAlphaAndLambdaPrime.pdf
+#RFPLambdaPrimeValues.csv
+#RFPPsiValues.csv
+RFP_CSP_Values_Mixture1.pdf
+RFP_Genome_allUnique_startCSP_startPhi_adaptSphi_true.pdf
+testPAModelLog.txt
