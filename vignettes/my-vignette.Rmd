@@ -1,0 +1,282 @@
+---
+title: "AnaCoDa: Analyzing Codon Data"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+bibliography: anacoda.bib
+vignette: >
+  %\VignetteIndexEntry{Analyzing Codon Data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+AnaCoDa allows for the estimation of biologically relevant parameters like mutation bias or ribosome pausing time, depending on the model employed.  Bayesian estimation of parameters is performed using an adaptive Metropolis-Hasting within Gibbs sampling approach. Models implemented in AnaCoDa are currently able to handle gene coding sequences and ribosome footprinting data.
+
+
+## The AnaCoDa framework
+
+The AnaCoDa framework works with gene specific data such as codon frequencies or position specific footprint counts.
+Conceptually, AnaCoDa uses three different types of parameters.
+
+* The first type of parameters are  **gene specific parameters** such as gene expression level or functionality.
+Gene-specific parameters are estimated separately for each gene and can vary between potential gene categories or sets.
+
+* The second type of parameters are **gene-set specific parameters**, such as mutation bias terms or translation error rates.
+These parameters are shared across genes within a set and can be exclusive to a single set or shared with other sets.
+While the number of gene sets must be pre-defined by the user, set assignment of genes can be pre-defined or estimated as part of the model fitting.
+Estimation of the set assignment provides the probability of a gene being assigned to a set allowing the user to asses the uncertainty in each assignment.
+
+* The third type of parameters are **hyperparameters**, such as parameters controlling the prior distribution for mutation bias or error rate.
+Hyperparameters can be set specific or shared across multiple sets and allow for the construction and analysis of hierarchical models, by controlling prior distributions for gene or gene-set specific parameters.
+
+## Analyzing protein coding gene sequences
+AnaCoDa always requires the following four objects:
+
+* **Genome** contains the codon data read from a fasta file as well as empirical protein synthesis rate in the form of a comma separated (.csv) ID/Value pairs.
+
+* **Parameter** represents the parameter set (including parameter traces) for a given genome. The parameter object also hold the mapping of parameters to specified sets.
+
+* **Model** allows you to specify which model should be applied to the genome and the parameter object.
+
+* **MCMC** specifies how many samples from the posterior distribution of the specified model should be stored to obtain parameter estimates.
+ 
+### Application of codon model to single genome
+In this example we are assuming a genome with only one set of gene-set specific parameters, hence `num.mixtures = 1`.
+We assign all genes the same gene-set, and provide an initial value for the hyperparameter sphi ($s_\phi$).
+$s_\phi$ controls the lognormal prior distribution on the gene specific parameters like the protein synthesis rate $\phi$.
+To ensure identifiability the expected value of the prior distribution is assumed to be 1. 
+
+\begin{align}
+E[\phi] = \exp\left(m_\phi+\frac{s_\phi^2}{2}\right) = 1
+\end{align}
+
+Therefor the mean $m_\phi$ is set to be $-\frac{s_\phi^2}{2}$.
+For more details see [@gilchrist2015]
+
+After choosing the model and specifying the necessary arguments for the MCMC routine, the MCMC is run.
+
+```{r, echo = TRUE, eval = FALSE}
+genome <- initializeGenomeObject(file = "genome.fasta")
+parameter <- initializeParameterObject(genome = genome, sphi = 1, num.mixtures = 1, geneAssignment = rep(1, length(genome)))
+model <- initializeModelObject(parameter = parameter, model = "ROC")
+mcmc <- initializeMCMCObject(samples = 5000, thinning = 10, adaptive.width=50)
+runMCMC(mcmc = mcmc, genome = genome, model = model)
+```
+`runMCMC` does not return a value, the results of the MCMC are stored automatically in the `mcmc` and `parameter` objects created earlier.
+
+### Application of codon model to a mixture of genomes
+This case applies if we assume that parts of the genome differ in their gene-set specific parameters. This could be due to introgression events or strand specific mutation difference or other stuff. We make the assumption that all sets of genes are independent of one another.
+For two sets of gene-set specific parameter with a random gene assignment we can use:
+
+```{r, echo = TRUE, eval = FALSE}
+parameter <- initializeParameterObject(genome = genome, sphi = c(0.5, 2), num.mixtures = 2, geneAssignment = sample.int(2, length(genome), replace = T))
+```
+
+To accommodate for this mixing we only have to adjust `sphi`, which is now a vector of length 2,  `num.mixtures`, and `geneAssignment`, which is chosen at random here.
+
+### Using empirical protein synthesis rate values
+To use empirical values as prior information one can simply specify an `observed.expression.file` when initializing the genome object.
+
+```{r, echo = TRUE, eval = FALSE}
+genome <- initializeGenomeObject(file = "genome.fasta", observed.expression.file = "synthesis_values.csv")
+```
+
+These observed expression or synthesis  values ($\Phi$) are independent of the number of gene-sets.
+The error in the observed $\Phi$ values is estimated and described by sepsilon ($s_\epsilon$).
+The csv file can contain multiple observation sets separated by comma.
+For each set of observations an initial $s_\epsilon$ has to  be specified.
+```{r, echo = TRUE, eval = FALSE}
+# One case of observed data
+sepsilon <- 0.1
+# Two cases of observed data
+sepsilon <- c(0.1, 0.5)
+# ...
+# Five cases of observed data
+sepsilon <- c(0.1, 0.5, 1, 0.8, 3)
+
+parameter <- initializeParameterObject(genome = genome, sphi = 1, num.mixtures = 1, geneAssignment = rep(1, length(genome)), init.sepsilon = sepsilon)
+```
+
+In addition one can choose to keep the noise in the observations ($s_\epsilon$) constant by using the `fix.observation.noise` flag in the model object.
+```{r, echo = TRUE, eval = FALSE}
+model <- initializeModelObject(parameter = parameter, model = "ROC",  fix.observation.noise = TRUE)
+```
+
+### Keeping parameter types fixed
+It can sometime be advantages to fix certain parameters, like the gene specific parameters.
+For example in cases where only few sequences are available but gene expression measurements are at hand we can fix the gene specific parameters to increase confidence in our estimates of gene-set specific parameters.
+
+We again initialize our `genome`, `parameter`, and `model` objects.
+```{r, echo = TRUE, eval = FALSE}
+genome <- initializeGenomeObject(file = "genome.fasta")
+parameter <- initializeParameterObject(genome = genome, sphi = 1, num.mixtures = 1, geneAssignment = rep(1, length(genome)))
+model <- initializeModelObject(parameter = parameter, model = "ROC")
+```
+To fix gene specific parameters we will set the `est.expression` flag to `FALSE`.
+This will estimate only gene-set specific parameters, hyperparameters, and the assignments of genes to various sets.
+```{r, echo = TRUE, eval = FALSE}
+mcmc <- initializeMCMCObject(samples, thinning=1, adaptive.width=100, est.expression=FALSE, est.csp=TRUE, est.hyper=TRUE, est.mix=TRUE)
+```
+If we would like to fix gene-set specific parameters we instead disable the `est.csp` flag.
+```{r, echo = TRUE, eval = FALSE}
+mcmc <- initializeMCMCObject(samples, thinning=1, adaptive.width=100, est.expression=TRUE, est.csp=FALSE, est.hyper=TRUE, est.mix=TRUE)
+```
+The same applies to the hyper parameters (`est.hyper`), 
+```{r, echo = TRUE, eval = FALSE}
+mcmc <- initializeMCMCObject(samples, thinning=1, adaptive.width=100, est.expression=TRUE, est.csp=TRUE, est.hyper=FALSE, est.mix=TRUE)
+```
+and gene set assignment (`est.mix`).
+```{r, echo = TRUE, eval = FALSE}
+mcmc <- initializeMCMCObject(samples, thinning=1, adaptive.width=100, est.expression=TRUE, est.csp=TRUE, est.hyper=TRUE, est.mix=FALSE)
+```
+We can use these flags to fix parameters in any combination.
+
+### Combining various gene-set specific parameters to a gene-set description.
+We distinguish between three simple cases of gene-set descriptions, and the ability to customize the parameter mapping.
+The specification is done when initializing the parameter object with the `mixture.definition` argument.
+
+We encounter the simplest case when we assume that all gene sets are independent. 
+```{r, echo = TRUE, eval = FALSE}
+parameter <- initializeParameterObject(genome = genome, sphi = c(0.5, 2), num.mixtures = 2
+                                       , geneAssignment = sample.int(2, length(genome), replace = T),
+                                       mixture.definition = "allUnique")
+```
+The `allUnique` keyword allows each type of gene-set specific parameter to be estimated independent of parameters describing other gene sets.
+
+In case we want to share mutation parameter between gene sets we can use the keyword `mutationShared`.
+```{r, echo = TRUE, eval = FALSE}
+parameter <- initializeParameterObject(genome = genome, sphi = c(0.5, 2), num.mixtures = 2
+                                       , geneAssignment = sample.int(2, length(genome), replace = T),
+                                       mixture.definition = "mutationShared")
+```
+This will force all gene sets to share the same mutation parameters.
+
+The same can be done with parameters describing selection, using the keyword `selectionShared`
+```{r, echo = TRUE, eval = FALSE}
+parameter <- initializeParameterObject(genome = genome, sphi = c(0.5, 2), num.mixtures = 2
+                                       , geneAssignment = sample.int(2, length(genome), replace = T),
+                                       mixture.definition = "selectionShared")
+```
+
+For more intricate compositions of gene sets, one can specify a custom $n\times2$ matrix, where $n$ is the number of gene sets, to describe how gene-set specific parameters should be shared. 
+Instead of using the `mixture.definition` argument one uses the `mixture.definition.matrix` argument.
+
+The matrix representation of `mutationShared` can be obtained by
+```{r, echo = TRUE, eval = FALSE}
+#     [,1] [,2]
+#[1,]    1    1
+#[2,]    1    2
+#[3,]    1    3
+def.matrix <- matrix(c(1,1,1,1,2,3), ncol=2)
+parameter <- initializeParameterObject(genome = genome, sphi = c(0.5, 2, 1), num.mixtures = 3,
+                                       geneAssignment = sample.int(3, length(genome), replace = T),
+                                       mixture.definition.matrix = def.matrix)
+```
+Columns represent mutation and selection, while each row represents a gene set. 
+In this case we have three gene sets, each sharing the same mutation category and three different selection categories.
+
+In the same way one can produce the matrix for three independent gene sets equivalent to the `allUnique` keyword.
+```{r, echo = TRUE, eval = FALSE}
+#     [,1] [,2]
+#[1,]    1    1
+#[2,]    2    2
+#[3,]    3    3
+def.matrix <- matrix(c(1,2,3,1,2,3), ncol=2)
+```
+
+We can also use this matrix to produce more complex gene set compositions.
+```{r, echo = TRUE, eval = FALSE}
+#     [,1] [,2]
+#[1,]    1    1
+#[2,]    2    1
+#[3,]    1    2
+def.matrix <- matrix(c(1,2,1,1,1,2), ncol=2)
+```
+In this case gene set one and three share their mutation parameters, while gene set one and two share their selection parameters.
+
+
+## File formats
+
+### Protein coding sequence 
+Protein coding sequences are provided by fasta file with the default format.
+One line containing the sequence id starting with `>` followed by the id and one or more lines containing the sequence.
+The sequences are expected to have a length that is a multiple of three. If a codon can not be recognized (e.g AGN) it is ignored.
+```
+>YAL001C
+TTGGTTCTGACTCATTAGCCAGACGAACTGGTTCAA
+CATGTTTCTGACATTCATTCTAACATTGGCATTCAT
+ACTCTGAACCAACTGTAAGACCATTCTGGCATTTAG
+>YAL002W
+TTGGAACAAAACGGCCTGGACCACGACTCACGCTCT
+TCACATGACACTACTCATAACGACACTCAAATTACT
+TTCCTGGAATTCCGCTCTTAGACTCAACTGTCAGAA
+```
+
+### Empirical expression
+Empirical expression or gene specific parameters are provided in a csv file format.
+The first line is expected to be a header describing each column.
+The first column is expected be the gene id, and every additional column is expected to be represent a measurment.
+Each row corresbonds to one gene and contains all measurements for that gene, including missing values.
+```
+ORF,DATA_1,DATA_2,...DATA_N
+YAL001C,0.254,0.489,...,0.156
+YAL002W,1.856,1.357,...,2.014
+YAL003W,10.45,NA,...,9.564
+YAL005C,0.556,0.957,...,0.758
+```
+
+### RFP counts
+
+
+
+
+
+
+
+## Styles
+
+The `html_vignette` template includes a basic CSS theme. To override this theme you can specify your own CSS in the document metadata as follows:
+
+    output: 
+      rmarkdown::html_vignette:
+        css: mystyles.css
+
+## Figures
+
+The figure sizes have been customized so that you can easily put two images side-by-side. 
+
+```{r, fig.show='hold'}
+plot(1:10)
+plot(10:1)
+```
+
+You can enable figure captions by `fig_caption: yes` in YAML:
+
+    output:
+      rmarkdown::html_vignette:
+        fig_caption: yes
+
+Then you can use the chunk option `fig.cap = "Your figure caption."` in **knitr**.
+
+## More Examples
+
+You can write math expressions, e.g. $Y = X\beta + \epsilon$, footnotes^[A footnote here.], and tables, e.g. using `knitr::kable()`.
+
+```{r, echo=FALSE, results='asis'}
+knitr::kable(head(mtcars, 10))
+```
+
+Also a quote using `>`:
+
+> "He who gives up [code] safety for [code] speed deserves neither."
+([via](https://twitter.com/hadleywickham/status/504368538874703872))
+
+
+# References
