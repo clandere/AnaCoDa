@@ -298,13 +298,7 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
 #' parameter estimates for a given parameter and mixture or write it to a csv file.
 #' 
 #' 
-getCSPEstimates <- function(parameter, filename, CSP, mixture, samples){
-  UseMethod("getCSPEstimates", parameter)
-}
-
-
-#Called from getCSPEstimates
-getCSPEstimates.Rcpp_Parameter <- function(parameter, filename=NULL, CSP="Mutation", mixture = 1, samples = 10){
+getCSPEstimates <- function(parameter, filename=NULL, CSP="Mutation", mixture = 1, samples = 10){
   Amino_Acid <- c()
   Value <- c()
   Codon <- c()
@@ -621,7 +615,7 @@ getExpressionEstimatesForMixture <- function(parameter, gene.index, mixtureAssig
   
   expressionStdErr <- sqrt(unlist(lapply(gene.index, function(geneIndex){ 
     expressionCategory <- parameter$getSynthesisRateCategoryForMixture(mixtureAssignment[geneIndex]) 
-    parameter$getSynthesisRateVarianceByMixtureElementForGene(samples, geneIndex, expressionCategory) 
+    parameter$getSynthesisRateVarianceByMixtureElementForGene(samples, geneIndex, expressionCategory, T) 
   }))) / samples
   
   expr.mat <- cbind(expressionValues, expressionStdErr)

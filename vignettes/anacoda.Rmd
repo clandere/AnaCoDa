@@ -1,6 +1,6 @@
 ---
 title: "AnaCoDa: Analyzing Codon Data"
-author: "Vignette Author"
+author: "Cedric Landerer & Alex Cope"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: anacoda.bib
@@ -46,7 +46,9 @@ AnaCoDa always requires the following four objects:
 * **Model** allows you to specify which model should be applied to the genome and the parameter object.
 
 * **MCMC** specifies how many samples from the posterior distribution of the specified model should be stored to obtain parameter estimates.
- 
+
+## Setup of AnaCoDa
+
 ### Application of codon model to single genome
 In this example we are assuming a genome with only one set of gene-set specific parameters, hence `num.mixtures = 1`.
 We assign all genes the same gene-set, and provide an initial value for the hyperparameter sphi ($s_\phi$).
@@ -70,6 +72,12 @@ mcmc <- initializeMCMCObject(samples = 5000, thinning = 10, adaptive.width=50)
 runMCMC(mcmc = mcmc, genome = genome, model = model)
 ```
 `runMCMC` does not return a value, the results of the MCMC are stored automatically in the `mcmc` and `parameter` objects created earlier.
+
+> **Please note that AnaCoDa utilizes C++ obejct orientation and therefore employs pointer structures. 
+> This means that no return value is necessary for such objects as they are modified within the the `runMCMC` 
+> routine. 
+> You will find that after a completed run, the `parameter` 
+> object will contain all necessary information without being directly passed into the MCMC routine. This might be confusing at first as it is not default R behaviour.**
 
 ### Application of codon model to a mixture of genomes
 This case applies if we assume that parts of the genome differ in their gene-set specific parameters. This could be due to introgression events or strand specific mutation difference or other stuff. We make the assumption that all sets of genes are independent of one another.
@@ -201,6 +209,8 @@ def.matrix <- matrix(c(1,2,1,1,1,2), ncol=2)
 ```
 In this case gene set one and three share their mutation parameters, while gene set one and two share their selection parameters.
 
+### Checkpointing
+
 
 ## File formats
 
@@ -222,8 +232,8 @@ TTCCTGGAATTCCGCTCTTAGACTCAACTGTCAGAA
 ### Empirical expression
 Empirical expression or gene specific parameters are provided in a csv file format.
 The first line is expected to be a header describing each column.
-The first column is expected be the gene id, and every additional column is expected to be represent a measurment.
-Each row corresbonds to one gene and contains all measurements for that gene, including missing values.
+The first column is expected be the gene id, and every additional column is expected to be represent a measurement.
+Each row corresponds to one gene and contains all measurements for that gene, including missing values.
 ```
 ORF,DATA_1,DATA_2,...DATA_N
 YAL001C,0.254,0.489,...,0.156
@@ -236,47 +246,116 @@ YAL005C,0.556,0.957,...,0.758
 
 
 
+## Analyzing and Visualizating results
 
+### Parameter estimates
+After we have completed the model fitting, we are interested in the results.
+AnaCoDa provides functions to obtain the posterior estimate for each parameter.
+For gene-set specific parameters or codon specific parameters we can use the function `getCSPEstimates`. 
+Again we can specify for which mixture we would like the posterior estimate and how many samples should be used.
+`getCSPEstimates` has an optional argument `filename` which will cause the routine to write the result as a csv file instead of returning a `data.frame`.
 
+```{r, echo = TRUE, eval = FALSE}
+csp_mat <- getCSPEstimates(parameter = parameter, CSP="Mutation", mixture = 1, samples = 1000)
+head(csp_mat)
+#  AA Codon  Posterior     0.025%     0.975%
+#1  A   GCA -0.2435340 -0.2720696 -0.2165220
+#2  A   GCC  0.4235546  0.4049132  0.4420680
+#3  A   GCG  0.7004484  0.6648690  0.7351707
+#4  C   TGC  0.2016298  0.1679025  0.2387024
+#5  D   GAC  0.5775052  0.5618199  0.5936979
+#6  E   GAA -0.4524295 -0.4688044 -0.4356677
 
-
-## Styles
-
-The `html_vignette` template includes a basic CSS theme. To override this theme you can specify your own CSS in the document metadata as follows:
-
-    output: 
-      rmarkdown::html_vignette:
-        css: mystyles.css
-
-## Figures
-
-The figure sizes have been customized so that you can easily put two images side-by-side. 
-
-```{r, fig.show='hold'}
-plot(1:10)
-plot(10:1)
+getCSPEstimates(parameter = parameter, filename = "mutation.csv", CSP="Mutation", mixture = 1, samples = 1000)
 ```
 
-You can enable figure captions by `fig_caption: yes` in YAML:
-
-    output:
-      rmarkdown::html_vignette:
-        fig_caption: yes
-
-Then you can use the chunk option `fig.cap = "Your figure caption."` in **knitr**.
-
-## More Examples
-
-You can write math expressions, e.g. $Y = X\beta + \epsilon$, footnotes^[A footnote here.], and tables, e.g. using `knitr::kable()`.
-
-```{r, echo=FALSE, results='asis'}
-knitr::kable(head(mtcars, 10))
+To obtain posterior estimates for the gene specific parameters, we can use the function `getExpressionEstimatesForMixture`.
+In the case below we ask to get the gene specific parameters for all genes, and under the assumption each gene is assigned to mixture 1.
+```{r, echo = TRUE, eval = FALSE}
+phi_mat <- getExpressionEstimatesForMixture(parameter = parameter, 
+                                            gene.index = 1:length(genome), 
+                                            mixtureAssignment = rep(1,length(genome)), 
+                                            samples = 1000)
+head(phi_mat)
+#           PHI    Std_Error
+#[1,] 0.2729446 0.0001261525
+#[2,] 1.4221716 0.0001669425
+#[3,] 0.7459888 0.0002313539
+#[4,] 0.6573082 0.0001935466
+#[5,] 1.6316902 0.0001846631
+#[6,] 0.6179711 0.0001744928
 ```
 
-Also a quote using `>`:
+However we can decide to only obtain certain gene parameters. in the first case we sample 100 random genes.
+In the second case, we decide to use the function `getMixtureAssignmentEstimate` to obtain the estimated gene assignment. 
 
-> "He who gives up [code] safety for [code] speed deserves neither."
-([via](https://twitter.com/hadleywickham/status/504368538874703872))
+```{r, echo = TRUE, eval = FALSE}
+# sampling 100 genes at random
+phi_mat <- getExpressionEstimatesForMixture(parameter = parameter, 
+                                            gene.index = sample(1:length(genome), 100), 
+                                            mixtureAssignment = rep(1,length(genome)), 
+                                            samples = 1000)
+
+# finding the estimated gene assignment and using it to obtaine the corresbonding estimated gene expression.
+assignment <- getMixtureAssignmentEstimate(parameter = parameter, 1:length(genome), samples = 1000)
+phi_mat <- getExpressionEstimatesForMixture(parameter = parameter, 
+                                            gene.index = 1:length(genome), 
+                                            mixtureAssignment = assignment), 
+                                            samples = 1000)
+```
+
+### Diagnostic plots
+A first step after every run should be to determine if the sampling routine has converged. 
+To do that, AnaCoDa provides plotting routines to visualize all sampled parameter traces from which the posterior sample is obtained.
+
+First we have to obtain the trace object stored within our parameter object. 
+Now we can just plot the trace object. The argument 'what' specifies which type of parameter should be plotted.
+
+Here we plot the selection parameter $\Delta \eta$ of the ROC model. These parameters are mixture specific and one can decide which mixture set to visualize using the argument `mixture`.
+
+```{r, echo = TRUE, eval = FALSE}
+trace <- parameter$getTraceObject()
+plot(x = trace, what = "Mutation", mixture = 1)
+```
+![Trace plot showing the traces of all 40 codon specific selection parameters organized by amino acid](selection_trace.png)
+
+A special case is the plotting of traces of the protein synthesis rate $\phi$. As the number of traces for the different $phi$ traces is usually in the thousands, a `geneIndex` has to be passed to determine for which gene the trace should be plotted.
+This allows to inspect the trace of every gene under every mixture assignment.
+
+```{r, echo = TRUE, eval = FALSE}
+trace <- parameter$getTraceObject()
+plot(x = trace, what = "Expression", mixture = 1, geneIndex = 669)
+```
+![Trace plot showing the protein synthesis trace for gene 669](expression_trace.png)
+
+We can find the likelihood and posterior trace of the model fit in the mcmc object.
+The trace can be plotted by just passing the `mcmc` object to the `plot` routine.
+Again we can switch between log(likelihood) and log(posterior) using the argument `what`.
+The argument `zoom.window` is used to inspect a specified window in more detail. It defaults to the last 10% of the trace.
+The log(posterior) displayed in the figure title is also estimated over the `zoom.window`.
+```{r, echo = TRUE, eval = FALSE}
+plot(mcmc, what = "LogPosterior", zoom.window = c(9000, 10000))
+```
+![Trace plot showing the log(posterior) trace for the current model fit.](logpost_trace.png)
+
+
+### Model visualization
+We can visualize the results of the model fit by plotting the model object.
+For this we require the model and the genome object. 
+We can adjust which mixture set we would like to visualize and how many samples should be used to obtain the posterior estimate for each parameter. For more details see [@gilchrist2015].
+```{r, echo = TRUE, eval = FALSE}
+# use the last 500 samples from mixture 1 for posterior estimate.
+plot(x = model, genome = genome, samples = 500, mixture = 1)
+```
+![Fit of the ROC model for a random yeast. The solid line represent the model fit from the data, showing how synonymous codon frequencies change with gene expression. The points are the observed mean frequencies of a codon in that synthesis rate bin and the wisks indicate the standard diviation within the bin. The codon favored by selection is indicated by a "*". The bottom right panel shows how many genes are contained in heach bin.](model_fit.png)
+
+As AnaCoDa is designed with the idea to allow gene-sets to have independent gene-set specific parameters, AnaCoDa also provides the option to compare different gene-sets by plotting the `parameter` object.
+Here we compare the selection parameter estimated by ROC for seven yeast species.
+```{r, echo = TRUE, eval = FALSE}
+plot(parameter, what = "Selection", samples = 500)
+```
+![Comparisson of the selection parameter of seven parameter estimated with ROC](param_comp.png)
+
 
 
 # References

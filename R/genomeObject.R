@@ -4,7 +4,7 @@
 #' 
 #' @param file A file of coding sequences in fasta or RFPData format
 #' 
-#' @param genome A genome object can be passed in to concatenate the input file to it (optional).
+#' @param genome A genome object can be passed in to concatenate the input file to it (optional, requires append = TRUE).
 #' 
 #' @param observed.expression.file A string containing the location of a file containing
 #'  empirical expression rates (optional).

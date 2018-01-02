@@ -48,7 +48,7 @@ plot.Rcpp_MCMCAlgorithm <- function(x, what = "LogPosterior", zoom.window = NULL
   
   Hmisc::subplot(
     plot(zoomStart:zoomEnd, trace[zoomStart:zoomEnd], type="l", xlab=NA, ylab=NA, las=2, cex.axis=0.55), 
-    0.8*(round(0.9*trace.length)), (min(trace, na.rm = T)+max(trace, na.rm = T))/2, size=c(3,2))
+    0.8*(round(0.9*trace.length)), (min(trace, na.rm = T)+max(trace, na.rm = T))/3, size=c(3,2))
 }
 
 #' Autocorrelation function for the likelihood or posterior trace
