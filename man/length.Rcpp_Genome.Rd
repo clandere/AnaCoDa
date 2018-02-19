@@ -15,3 +15,12 @@ returns the number of genes in a genome
 \description{
 \code{length} gives the length of a genome
 }
+\examples{
+
+genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+ 
+## reading genome
+genome <- initializeGenomeObject(file = genome_file)
+length(genome) # 10
+
+}

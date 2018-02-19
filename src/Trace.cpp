@@ -317,11 +317,11 @@ std::vector<double> Trace::getCodonSpecificAcceptanceRateTraceForAA(std::string 
 }
 
 
-std::vector<double> Trace::getSynthesisRateTraceForGene(unsigned geneIndex)
+std::vector<float> Trace::getSynthesisRateTraceForGene(unsigned geneIndex)
 {
 	unsigned traceLength = (unsigned)synthesisRateTrace[0][0].size();
 
-	std::vector<double> returnVector(traceLength, 0.0);
+	std::vector<float> returnVector(traceLength, 0.0);
 	for (unsigned i = 0u; i < traceLength; i++)
 	{
 		unsigned mixtureElement = mixtureAssignmentTrace[geneIndex][i];
@@ -334,6 +334,8 @@ std::vector<double> Trace::getSynthesisRateTraceForGene(unsigned geneIndex)
 
 std::vector<float> Trace::getSynthesisRateTraceByMixtureElementForGene(unsigned mixtureElement, unsigned geneIndex)
 {
+	
+
 	unsigned category = getSynthesisRateCategory(mixtureElement);
 	return synthesisRateTrace[category][geneIndex];
 }
@@ -385,6 +387,24 @@ std::vector<std::vector<std::vector<std::vector<float>>>>* Trace::getCodonSpecif
 //---------- ROC Specific ----------//
 //----------------------------------//
 
+std::vector<float> Trace::getCodonSpecificParameterTraceByGeneElementForCodon(unsigned geneIndex,
+	std::string& codon, unsigned paramType, bool withoutReference)
+{
+	std::vector <float> rv;
+	unsigned codonIndex = SequenceSummary::codonToIndex(codon, withoutReference);
+	unsigned tracelength = (unsigned)codonSpecificParameterTrace[0][0][0].size();
+	rv.resize(tracelength);
+	for(unsigned i = 0; i < tracelength; i++)
+	{
+		unsigned mixtureElement = mixtureAssignmentTrace[geneIndex][i];
+		unsigned category = getCodonSpecificCategory(mixtureElement, paramType);
+		rv[i] = codonSpecificParameterTrace[paramType][category][codonIndex][i];
+	}
+
+	return rv;
+}
+
+
 std::vector<float> Trace::getCodonSpecificParameterTraceByMixtureElementForCodon(unsigned mixtureElement,
 	std::string& codon, unsigned paramType, bool withoutReference)
 {
@@ -392,19 +412,6 @@ std::vector<float> Trace::getCodonSpecificParameterTraceByMixtureElementForCodon
 	unsigned codonIndex = SequenceSummary::codonToIndex(codon, withoutReference);
 	unsigned category = getCodonSpecificCategory(mixtureElement, paramType);
 	rv = codonSpecificParameterTrace[paramType][category][codonIndex];
-	/*
-	switch (paramType) {
-	case 0:
-		rv = codonSpecificParameterTraceOne[category][codonIndex];
-		break;
-	case 1:
-		rv = codonSpecificParameterTraceTwo[category][codonIndex];
-		break;
-	default:
-		my_printError("ERROR: Unknown Parameter type in getCodonSpecificParameterTraceByMixtureElementForCodon\n");
-		break;
-	}
-	*/
 	return rv;
 }
 
@@ -429,20 +436,6 @@ std::vector<double> Trace::getObservedSynthesisNoiseTrace(unsigned index)
 
 std::vector<std::vector<std::vector<float>>> Trace::getCodonSpecificParameterTraceByParamType(unsigned paramType)
 {
-	/*
-	std::vector<std::vector<std::vector<double>>> rv;
-	switch (paramType) {
-	case 0:
-		rv = codonSpecificParameterTraceOne;
-		break;
-	case 1:
-		rv = codonSpecificParameterTraceTwo;
-		break;
-	default:
-		my_printError("ERROR: Unknown Parameter type in getCodonSpecificParameterTraceByParamType\n";
-		break;
-	}
-	*/
 	return codonSpecificParameterTrace[paramType];
 }
 
@@ -607,28 +600,6 @@ void Trace::updateCodonSpecificParameterTraceForCodon(unsigned sample, std::stri
         }
 		codonSpecificParameterTrace[paramType][category][i][sample] = curParam[category][i];
 	}
-
-	/*
-	switch (paramType)
-	{
-		case 0:
-			for (unsigned category = 0; category < codonSpecificParameterTraceOne.size(); category++)
-			{
-				codonSpecificParameterTraceOne[category][i][sample] = curParam[category][i];
-			}
-			break;
-		case 1:
-			for (unsigned category = 0; category < codonSpecificParameterTraceTwo.size(); category++)
-			{
-				codonSpecificParameterTraceTwo[category][i][sample] = curParam[category][i];
-			}
-			break;
-		default:
-			my_printError("ERROR: Unknown parameter type in updateCodonSpecificParameterTraceForCodon\n");
-			break;
-	}
-	*/
-
 }
 
 
@@ -655,9 +626,9 @@ std::vector<double> Trace::getSynthesisRateAcceptanceRateTraceByMixtureElementFo
 }
 
 
-std::vector<double> Trace::getSynthesisRateTraceForGeneR(unsigned geneIndex)
+std::vector<float> Trace::getSynthesisRateTraceForGeneR(unsigned geneIndex)
 {
-	std::vector<double> RV;
+	std::vector<float> RV;
 	bool checkGene = checkIndex(geneIndex, 1, synthesisRateTrace[0].size());
 	if (checkGene)
 	{

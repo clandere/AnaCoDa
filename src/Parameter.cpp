@@ -323,6 +323,13 @@ void Parameter::initBaseValuesFromFile(std::string filename)
 						}
 					}
 				}
+				else if (variableName == "obsPhiSets")
+				{
+					iss.str(tmp);
+					my_print("read\n");
+					iss >> obsPhiSets;
+					my_print("%",obsPhiSets);
+				}
 				else if (variableName == "currentSynthesisRateLevel")
 				{
 					if (tmp == "***")
@@ -369,7 +376,7 @@ void Parameter::initBaseValuesFromFile(std::string filename)
 		numAcceptForStdDevSynthesisRate = 0u;
 		bias_stdDevSynthesisRate = 0;
 		bias_phi = 0;
-		obsPhiSets = 0;
+		//obsPhiSets = 0;
 
 		numAcceptForSynthesisRate.resize(numSelectionCategories);
 		proposedSynthesisRateLevel.resize(numSelectionCategories);
@@ -476,7 +483,7 @@ void Parameter::writeBasicRestartFile(std::string filename)
 			}
 			oss << "\n";
 		}
-
+		oss << ">obsPhiSets:\n" << obsPhiSets << "\n";
 		oss << ">currentSynthesisRateLevel:\n";
 		for (i = 0; i < currentSynthesisRateLevel.size(); i++)
 		{
@@ -672,11 +679,12 @@ void Parameter::setNumMutationSelectionValues(std::string _mutationSelectionStat
 		//of unique categories.
 		std::set<unsigned> delMCounter;
 		std::set<unsigned> delEtaCounter;
-
 		for (unsigned i = 0u; i < numMixtures; i++)
 		{
 			delMCounter.insert(mixtureDefinitionMatrix[i][0] - 1);
 			delEtaCounter.insert(mixtureDefinitionMatrix[i][1] - 1);
+
+
 		}
 		numMutationCategories = (unsigned)delMCounter.size();
 		numSelectionCategories = (unsigned)delEtaCounter.size();
@@ -834,11 +842,7 @@ void Parameter::setGroupList(std::vector <std::string> gl)
 	groupList.clear();
 	for (unsigned i = 0; i < gl.size(); i++)
 	{
-		if (gl[i] == "M" || gl[i] == "W" || gl[i] == "X")
-		    // TODO: print only with ROC and FONSE models, somehow.
-			my_printError("Warning: Amino Acid % not recognized in ROC or FONSE model.\n", gl[i].c_str());
-		else
-			groupList.push_back(gl[i]);
+		groupList.push_back(gl[i]);
 	}
 }
 
@@ -951,7 +955,7 @@ double Parameter::getStdCspForIndex(unsigned i)
 double Parameter::getSynthesisRate(unsigned geneIndex, unsigned mixtureElement, bool proposed)
 {
 	unsigned category = getSelectionCategory(mixtureElement);
-	return (proposed ? proposedSynthesisRateLevel[category][geneIndex] : currentSynthesisRateLevel[category][geneIndex]);
+ 	return  (proposed ? proposedSynthesisRateLevel[category][geneIndex] : currentSynthesisRateLevel[category][geneIndex]);
 }
 
 
@@ -1116,36 +1120,37 @@ unsigned Parameter::getMixtureAssignment(unsigned gene)
 }
 
 
-std::vector <std::vector <double> > Parameter::calculateSelectionCoefficients(unsigned sample, unsigned mixture)
+std::vector<std::vector<double>> Parameter::calculateSelectionCoefficients(unsigned sample)
 {
 	unsigned numGenes = (unsigned)mixtureAssignment.size();
 	std::vector<std::vector<double>> selectionCoefficients;
-	selectionCoefficients.resize(numGenes);
+	selectionCoefficients.resize(numGenes, std::vector<double> (61, 0));
+	unsigned numGroupings = getGroupListSize();
+
 	for (unsigned i = 0; i < numGenes; i++)
 	{
-		for (unsigned j = 0; j < getGroupListSize(); j++)
-		{
+		unsigned codon_index = 0;
+		double phi = getSynthesisRatePosteriorMean(sample, i, false);
 
+		for (unsigned j = 0; j < numGroupings; j++)
+		{
 			std::string aa = getGrouping(j);
 			unsigned aaStart, aaEnd;
 			SequenceSummary::AAToCodonRange(aa, aaStart, aaEnd, true);
-				std::vector<double> tmp;
+			std::vector<double> tmp;
 			double minValue = 0.0;
 			for (unsigned k = aaStart; k < aaEnd; k++)
 			{
 				std::string codon = SequenceSummary::codonArrayParameter[k];
-				tmp.push_back(getCodonSpecificPosteriorMean(sample, mixture, codon, 1));
-				if (tmp[k] < minValue)
-				{
-					minValue = tmp[k];
-				}
+				double x = getCodonSpecificPosteriorMean(i, sample, codon, 1, true, true);
+				tmp.push_back(x);
+				minValue = (x < minValue) ? x : minValue;
 			}
 			tmp.push_back(0.0);
-			double phi = getSynthesisRatePosteriorMean(sample, i, mixture);
-			for (unsigned k = 0; k < tmp.size(); k++)
+			for (unsigned k = 0; k < tmp.size(); k++, codon_index++)
 			{
 				tmp[k] -= minValue;
-				selectionCoefficients[i].push_back(phi * tmp[k]);
+				selectionCoefficients[i][codon_index] = -(phi * tmp[k]);
 			}
 		}
 	}
@@ -1374,13 +1379,11 @@ double Parameter::getStdDevSynthesisRatePosteriorMean(unsigned samples, unsigned
  * Note: May return NaN if the gene was never in the category (expected resulted, OK).
  * Wrapped by getSynthesisRatePosteriorMeanByMixtureElementForGene on the R-side.
 */
-double Parameter::getSynthesisRatePosteriorMean(unsigned samples, unsigned geneIndex, unsigned mixtureElement)
+double Parameter::getSynthesisRatePosteriorMean(unsigned samples, unsigned geneIndex, bool log_scale)
 {
-	unsigned expressionCategory = getSynthesisRateCategory(mixtureElement);
 	float posteriorMean = 0.0;
-	std::vector<float> synthesisRateTrace = traces.getSynthesisRateTraceByMixtureElementForGene(mixtureElement, geneIndex);
+	std::vector<float> synthesisRateTrace = traces.getSynthesisRateTraceForGene(geneIndex);
 	unsigned traceLength = lastIteration + 1;
-
 	if (samples > lastIteration)
 	{
 		my_printError("Warning in ROCParameter::getSynthesisRatePosteriorMean throws: Number of anticipated samples");
@@ -1390,21 +1393,23 @@ double Parameter::getSynthesisRatePosteriorMean(unsigned samples, unsigned geneI
 		samples = traceLength;
 	}
 	unsigned start = traceLength - samples;
-	unsigned category;
-	unsigned usedSamples = 0u;
-	std::vector<unsigned> mixtureAssignmentTrace = traces.getMixtureAssignmentTraceForGene(geneIndex);
-	for (unsigned i = start; i < traceLength; i++)
+
+	if(log_scale)
 	{
-		category = mixtureAssignmentTrace[i];
-		category = getSynthesisRateCategory(category);
-		if (category == expressionCategory)
+		for (unsigned i = start; i < traceLength; i++)
 		{
-			posteriorMean += synthesisRateTrace[i];
-			usedSamples++;
+			synthesisRateTrace[i] = std::log10(synthesisRateTrace[i]);
 		}
 	}
-	return posteriorMean / (double)usedSamples;
+	for (unsigned i = start; i < traceLength; i++)
+	{
+			posteriorMean += synthesisRateTrace[i];
+	}
+	return posteriorMean / (float)samples;
 }
+
+
+
 
 
 /* getCodonSpecificPosteriorMean (RCPP EXPOSED VIA WRAPPER)
@@ -1415,14 +1420,22 @@ double Parameter::getSynthesisRatePosteriorMean(unsigned samples, unsigned geneI
  * of the codon-specific parameter's trace, and then getting the mean of these values.
  * Wrapped by getCodonSpecificPosteriorMeanForCodon on the R-side.
 */
-double Parameter::getCodonSpecificPosteriorMean(unsigned mixtureElement, unsigned samples, std::string &codon,
-	unsigned paramType, bool withoutReference)
+double Parameter::getCodonSpecificPosteriorMean(unsigned element, unsigned samples, std::string &codon,
+	unsigned paramType, bool withoutReference, bool byGene)
 {
 	double posteriorMean = 0.0;
-	std::vector<float> mutationParameterTrace = traces.getCodonSpecificParameterTraceByMixtureElementForCodon(
-		mixtureElement, codon, paramType, withoutReference);
+	std::vector<float> parameterTrace;
+	if(byGene)
+	{
+		parameterTrace = traces.getCodonSpecificParameterTraceByGeneElementForCodon(
+			element, codon, paramType, withoutReference);
+	}else{
+		parameterTrace = traces.getCodonSpecificParameterTraceByMixtureElementForCodon(
+			element, codon, paramType, withoutReference);
+	}
 
 	unsigned traceLength = lastIteration + 1;
+
 
 	if (samples > traceLength)
 	{
@@ -1435,7 +1448,7 @@ double Parameter::getCodonSpecificPosteriorMean(unsigned mixtureElement, unsigne
 	unsigned start = traceLength - samples;
 
 	for (unsigned i = start; i < traceLength; i++)
-		posteriorMean += mutationParameterTrace[i];
+		posteriorMean += parameterTrace[i];
 
 	return posteriorMean / (double)samples;
 }
@@ -1464,16 +1477,15 @@ double Parameter::getStdDevSynthesisRateVariance(unsigned samples, unsigned mixt
 		double difference = StdDevSynthesisRateTrace[i] - posteriorMean;
 		posteriorVariance += difference * difference;
 	}
-	double normalizationTerm = unbiased ? (1 / ((double)samples - 1.0)) : (1 / (double)samples);
+	double normalizationTerm = unbiased ? (1.0 / ((double)samples - 1.0)) : (1.0 / (double)samples);
 	return normalizationTerm * posteriorVariance;
 }
 
 
-double Parameter::getSynthesisRateVariance(unsigned samples, unsigned geneIndex, unsigned mixtureElement,
-	bool unbiased)
+double Parameter::getSynthesisRateVariance(unsigned samples, unsigned geneIndex, bool unbiased, bool log_scale)
 {
-	std::vector<float> synthesisRateTrace = traces.getSynthesisRateTraceByMixtureElementForGene(mixtureElement,
-		geneIndex);
+	std::vector<float> synthesisRateTrace = traces.getSynthesisRateTraceForGene(geneIndex);
+
 	unsigned traceLength = lastIteration + 1;
 	if (samples > traceLength)
 	{
@@ -1483,14 +1495,21 @@ double Parameter::getSynthesisRateVariance(unsigned samples, unsigned geneIndex,
 
 		samples = traceLength;
 	}
+	unsigned start = traceLength - samples;
+	if(log_scale)
+	{
+		for (unsigned i = start; i < traceLength; i++)
+		{
+			synthesisRateTrace[i] = std::log10(synthesisRateTrace[i]);
+		}
+	}
 
 	// NOTE: The loss of precision here is acceptable for storage purposes.
-	float posteriorMean = (float)getSynthesisRatePosteriorMean(samples, geneIndex, mixtureElement);
+	float posteriorMean = (float)getSynthesisRatePosteriorMean(samples, geneIndex, log_scale);
 
 	float posteriorVariance = 0.0;
 	if (!std::isnan(posteriorMean))
 	{
-		unsigned start = traceLength - samples;
 		double difference;
 		for (unsigned i = start; i < traceLength; i++)
 		{
@@ -1498,7 +1517,7 @@ double Parameter::getSynthesisRateVariance(unsigned samples, unsigned geneIndex,
 			posteriorVariance += difference * difference;
 		}
 	}
-	double normalizationTerm = unbiased ? (1 / ((double)samples - 1.0)) : (1 / (double)samples);
+	float normalizationTerm = unbiased ? (1.0 / ((float)samples - 1.0)) : (1.0 / (float)samples);
 	return normalizationTerm * posteriorVariance;
 }
 
@@ -1525,7 +1544,7 @@ double Parameter::getCodonSpecificVariance(unsigned mixtureElement, unsigned sam
 		samples = traceLength;
 	}
 
-	double posteriorMean = getCodonSpecificPosteriorMean(mixtureElement, samples, codon, paramType, withoutReference);
+	double posteriorMean = getCodonSpecificPosteriorMean(mixtureElement, samples, codon, paramType, withoutReference, false);
 
 	double posteriorVariance = 0.0;
 
@@ -1536,10 +1555,63 @@ double Parameter::getCodonSpecificVariance(unsigned mixtureElement, unsigned sam
 		difference = parameterTrace[i] - posteriorMean;
 		posteriorVariance += difference * difference;
 	}
-	double normalizationTerm = unbiased ? (1 / ((double)samples - 1.0)) : (1 / (double)samples);
+	double normalizationTerm = unbiased ? (1.0 / ((double)samples - 1.0)) : (1.0 / (double)samples);
 	return normalizationTerm * posteriorVariance;
 }
 
+
+
+std::vector<double> Parameter::calculateQuantile(std::vector<float> &parameterTrace, unsigned samples, std::vector<double> probs, bool log_scale)
+{
+    unsigned traceLength = lastIteration + 1u;
+    //unsigned traceEnd = parameterTrace.size() - (parameterTrace.size() - lastIteration); //currently unused
+	if (samples > traceLength)
+	{
+		my_printError("Warning in Parameter::calculateQuantile throws: Number of anticipated samples ");
+		my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n",
+					  samples, traceLength);
+
+		samples = traceLength;
+	}
+    
+    std::vector<double> samplesTrace(parameterTrace.begin() + (lastIteration - samples) + 1, (parameterTrace.begin() + lastIteration + 1));
+    std::sort(samplesTrace.begin(), samplesTrace.end());
+
+	if(log_scale)
+	{
+		for (unsigned i = 0u; i < samplesTrace.size(); i++)
+		{
+			samplesTrace[i] = std::log10(samplesTrace[i]);
+		}
+	}
+
+    std::vector<double> retVec(probs.size());
+    double N = samplesTrace.size();
+    for (unsigned i = 0u; i < probs.size(); i++)
+    {
+	if( probs[i] < (2.0/3.0)/(N+(1.0/3.0)) )
+	{
+		retVec[i] = samplesTrace[0]; // first element
+	}
+	else if( probs[i] >= (N-(1.0/3.0))/(N+(1.0/3.0)) )
+	{
+		retVec[i] = samplesTrace[N - 1]; // last element
+	}
+	else
+	{
+		double h = (N*probs[i]) + (probs[i] + 1.0)/3.0;
+		int low = std::floor(h);
+		retVec[i] = samplesTrace[low] + (h - low)*(samplesTrace[low+1] - samplesTrace[low]);
+	}
+    }
+    return retVec;
+}
+
+std::vector<double> Parameter::getExpressionQuantile(unsigned samples, unsigned geneIndex, std::vector<double> probs, bool log_scale)
+{
+	std::vector<float> parameterTrace = traces.getSynthesisRateTraceForGene(geneIndex);
+	return calculateQuantile(parameterTrace, samples, probs, log_scale);
+}
 
 std::vector<double> Parameter::getCodonSpecificQuantile(unsigned mixtureElement, unsigned samples, std::string &codon,
 	unsigned paramType, std::vector<double> probs, bool withoutReference)
@@ -1547,29 +1619,7 @@ std::vector<double> Parameter::getCodonSpecificQuantile(unsigned mixtureElement,
  	std::vector<float> parameterTrace = traces.getCodonSpecificParameterTraceByMixtureElementForCodon(
 		mixtureElement, codon, paramType, withoutReference);
     
-    unsigned traceLength = lastIteration + 1;
-    //unsigned traceEnd = parameterTrace.size() - (parameterTrace.size() - lastIteration); //currently unused
-	if (samples > traceLength)
-	{
-		my_printError("Warning in Parameter::getCodonSpecificQuantile throws: Number of anticipated samples ");
-		my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n",
-					  samples, traceLength);
-
-		samples = traceLength;
-	}
-    
-    std::vector<double> samplesTrace(parameterTrace.begin() + (lastIteration - samples) + 1, (parameterTrace.begin()
-																							  + lastIteration + 1));
-    std::sort(samplesTrace.begin(), samplesTrace.end());
-    std::vector<double> retVec(probs.size());
-    for (unsigned i = 0u; i < probs.size(); i++)
-    {
-        double h = (1.0+(samplesTrace.size()-1.0)*probs[i]);
-        int low = (int)h;
-        retVec[i] = samplesTrace[low] + (h - low)*(samplesTrace[low+1] - samplesTrace[low]);
-    }
-    
-    return retVec;
+	return calculateQuantile(parameterTrace, samples, probs, false);
 }
 
 
@@ -2142,7 +2192,7 @@ double Parameter::getCodonSpecificPosteriorMeanForCodon(unsigned mixtureElement,
 	bool check = checkIndex(mixtureElement, 1, numMixtures);
 	if (check)
 	{
-		rv = getCodonSpecificPosteriorMean(mixtureElement - 1, samples, codon, paramType, withoutReference);
+		rv = getCodonSpecificPosteriorMean(mixtureElement - 1, samples, codon, paramType, withoutReference, false);
 	}
 	return rv;
 }
@@ -2179,8 +2229,19 @@ std::vector<double> Parameter::getCodonSpecificQuantileForCodon(unsigned mixture
     return rv;     
 }
 
+std::vector<double> Parameter::getExpressionQuantileForGene(unsigned samples,
+	unsigned geneIndex, std::vector<double> probs, bool log_scale)
+{
+	std::vector<double> rv;
+	bool checkGene = checkIndex(geneIndex, 1, (unsigned) mixtureAssignment.size());
+	if (checkGene)
+	{
+        rv = getExpressionQuantile(samples, geneIndex - 1, probs, log_scale);
+    }
+    return rv;     
+}
 
-/* getSynthesisRatePosteriorMeanByMixtureElementForGene
+/* getSynthesisRatePosteriorMeanForGene
  * Arguments: the number of samples from the end of the trace to examine, the gene to examine, and the mixture element.
  * Returns the posterior mean of the synthesis rate of the mixture element for a given gene.
  * This is calculated by simply gathering a number of traces from the end of the entire trace (up to all of it) to the end
@@ -2188,29 +2249,25 @@ std::vector<double> Parameter::getCodonSpecificQuantileForCodon(unsigned mixture
  * To implement the R version of this function, the index is also checked.
  * This is the R-wrapper for the C-side function "getSynthesisRatePosteriorMean".
 */
-double Parameter::getSynthesisRatePosteriorMeanByMixtureElementForGene(unsigned samples, unsigned geneIndex,
-	unsigned mixtureElement)
+double Parameter::getSynthesisRatePosteriorMeanForGene(unsigned samples, unsigned geneIndex, bool log_scale)
 {
 	double rv = -1.0;
 	bool checkGene = checkIndex(geneIndex, 1, (unsigned) mixtureAssignment.size());
-	bool checkMixtureElement = checkIndex(mixtureElement, 1, numMixtures);
-	if (checkGene && checkMixtureElement)
+	if (checkGene)
 	{
-		rv = getSynthesisRatePosteriorMean(samples, geneIndex - 1, mixtureElement - 1);
+		rv = getSynthesisRatePosteriorMean(samples, geneIndex - 1, log_scale);
 	}
 	return rv;
 }
 
 
-double Parameter::getSynthesisRateVarianceByMixtureElementForGene(unsigned samples, unsigned geneIndex,
-	unsigned mixtureElement, bool unbiased)
+double Parameter::getSynthesisRateVarianceForGene(unsigned samples, unsigned geneIndex, bool unbiased, bool log_scale)
 {
 	double rv = -1.0;
 	bool checkGene = checkIndex(geneIndex, 1, (unsigned) mixtureAssignment.size());
-	bool checkMixtureElement = checkIndex(mixtureElement, 1, numMixtures);
-	if (checkGene && checkMixtureElement)
+	if (checkGene)
 	{
-		rv = getSynthesisRateVariance(samples, geneIndex - 1, mixtureElement - 1, unbiased);
+		rv = getSynthesisRateVariance(samples, geneIndex - 1, unbiased, log_scale);
 	}
 	return rv;
 }
@@ -2243,21 +2300,16 @@ std::vector<double> Parameter::getEstimatedMixtureAssignmentProbabilitiesForGene
 //-------------------------------------//
 
 
-SEXP Parameter::calculateSelectionCoefficientsR(unsigned sample, unsigned mixture)
+SEXP Parameter::calculateSelectionCoefficientsR(unsigned sample)
 {
-	NumericMatrix RSelectionCoefficents(mixtureAssignment.size(), 62); //62 due to stop codons
-	std::vector<std::vector<double>> selectionCoefficients;
-	bool checkMixture = checkIndex(mixture, 1, numMixtures);
-	if (checkMixture)
+	NumericMatrix RSelectionCoefficents(mixtureAssignment.size(), 61); //61 due to stop codons
+	std::vector<std::vector<double>> selectionCoefficients = calculateSelectionCoefficients(sample);
+	unsigned index = 0;
+	for (unsigned i = 0; i < selectionCoefficients.size(); i++)
 	{
-		selectionCoefficients = calculateSelectionCoefficients(sample, mixture - 1);
-		unsigned index = 0;
-		for (unsigned i = 0; i < selectionCoefficients.size(); i++)
+		for (unsigned j = 0; j < selectionCoefficients[i].size(); j++, index++)
 		{
-			for (unsigned j = 0; j < selectionCoefficients[i].size(); j++, index++)
-			{
-				RSelectionCoefficents[index] = selectionCoefficients[i][j];
-			}
+			RSelectionCoefficents(i,j) = selectionCoefficients[i][j];
 		}
 	}
 	return RSelectionCoefficents;

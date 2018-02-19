@@ -9,12 +9,25 @@ getObservedSynthesisRateSet(genome, simulated = FALSE)
 \arguments{
 \item{genome}{A genome object initialized with \code{\link{initializeGenomeObject}}.}
 
-\item{simulated}{A logical value denoting if the synthesis rates to be listed are simulated or not.
-The default value is FALSE.}
+\item{simulated}{A logical value denoting if the synthesis 
+rates to be listed are simulated or not. The default value is FALSE.}
 }
 \value{
-gene.names Returns the names of the genes as a vector of strings.
+Returns a data.frame with the observed expression values in genome
 }
 \description{
-\code{getObservedSynthesisRateSet} returns the observed synthesis rates of the genes within the genome specified.
+\code{getObservedSynthesisRateSet} returns the observed 
+synthesis rates of the genes within the genome specified.
+}
+\examples{
+
+genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+expression_file <- system.file("extdata", "expression.csv", package = "AnaCoDa") 
+## reading genome
+genome <- initializeGenomeObject(file = genome_file)
+
+
+## return expression values as a data.frame with gene ids in the first column.
+expressionValues <- getObservedSynthesisRateSet(genome = genome)
+
 }

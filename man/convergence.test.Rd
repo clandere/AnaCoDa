@@ -4,13 +4,13 @@
 \alias{convergence.test}
 \title{Convergence Test}
 \usage{
-convergence.test(object, n.samples = 10, frac1 = 0.1, frac2 = 0.5,
+convergence.test(object, samples = 10, frac1 = 0.1, frac2 = 0.5,
   thin = 1, plot = FALSE, what = "Mutation", mixture = 1)
 }
 \arguments{
 \item{object}{an object of either class Trace or MCMC}
 
-\item{n.samples}{number of samples at the end of the trace used to determine convergence (< length of trace)}
+\item{samples}{number of samples at the end of the trace used to determine convergence (< length of trace)}
 
 \item{frac1}{fraction to use from beginning of chain}
 
@@ -20,7 +20,7 @@ convergence.test(object, n.samples = 10, frac1 = 0.1, frac2 = 0.5,
 
 \item{plot}{(logical) plot result instead of returning an object}
 
-\item{what}{Character describing which trace should be tested for convergence (only for trace object). Valid options are
+\item{what}{Character describing which trace should be tested for convergence (only for Trace object). Valid options are
 Mutation, Selection, MixtureProbability, Sphi, Mphi, ExpectedPhi, or Expression}
 
 \item{mixture}{Integer determining for which mixture disribution the convergence test should be applied (only for trace object).}
@@ -29,8 +29,41 @@ Mutation, Selection, MixtureProbability, Sphi, Mphi, ExpectedPhi, or Expression}
 geweke score object
 }
 \description{
-\code{convergence.test}
+Convergence Test
 }
-\details{
-\code{convergence.test}
+\examples{
+
+## check for convergence after a run:
+
+genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+
+genome <- initializeGenomeObject(file = genome_file)
+sphi_init <- c(1,1)
+numMixtures <- 2
+geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+                                       num.mixtures = numMixtures, 
+                                       gene.assignment = geneAssignment, 
+                                       mixture.definition = "allUnique")
+samples <- 2500
+thinning <- 50
+adaptiveWidth <- 25
+mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, 
+                             adaptive.width=adaptiveWidth, est.expression=TRUE, 
+                             est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+divergence.iteration <- 10
+\dontrun{
+runMCMC(mcmc = mcmc, genome = genome, model = model, 
+        ncores = 4, divergence.iteration = divergence.iteration)
+# check if posterior trace has converged
+convergence.test(object = mcmc, samples = 500, plot = TRUE)
+
+trace <- getTrace(parameter)
+# check if Mutation trace has converged
+convergence.test(mcmc, samples = 500, plot = TRUE, what = "Mutation")
+# check if Sphi trace has converged
+convergence.test(mcmc, samples = 500, plot = TRUE, what = "Sphi")
+# check if ExpectedPhi trace has converged
+convergence.test(mcmc, samples = 500, plot = TRUE, what = "ExpectedPhi")
+}
 }

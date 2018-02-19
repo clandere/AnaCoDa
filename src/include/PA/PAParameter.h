@@ -22,6 +22,8 @@ class PAParameter: public Parameter {
 		double bias_csp;
 
 	public:
+		static const unsigned dalpha;
+		static const unsigned dlambdaprime;
 
 		//Constructors & Destructors:
 		explicit PAParameter();

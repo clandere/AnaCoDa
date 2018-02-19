@@ -6,7 +6,7 @@ dnl Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
 
-AC_INIT([ribModel], m4_esyscmd_s([awk '/^Version:/ {print $2}' DESCRIPTION]), [cedric.landerer@gmail.com])
+AC_INIT([AnaCoDa], m4_esyscmd_s([awk '/^Version:/ {print $2}' DESCRIPTION]), [cedric.landerer@gmail.com])
 
 ## Determine install location of R
 : ${R_HOME=$(R RHOME)}

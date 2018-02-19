@@ -21,7 +21,7 @@ acfCSP(parameter, csp = "Mutation", numMixtures = 1, samples = NULL,
 \item{plot}{logical. If TRUE (default) a plot of the acf is created}
 }
 \description{
-The function calculates and by defaults plots the acf and estimates the autocorrelation in the trace.
+The function calculates and by defaults plots the acf and estimates the autocorrelation in the trace
 }
 \seealso{
 \code{\link{acfMCMC}}

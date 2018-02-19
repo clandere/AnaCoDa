@@ -32,6 +32,7 @@ double PAModel::calculateLogLikelihoodPerCodonPerGene(double currAlpha, double c
 	double logLikelihood = ((std::lgamma((currNumCodonsInMRNA * currAlpha) + currRFPValue)) - (std::lgamma(currNumCodonsInMRNA * currAlpha)))
 						   + (currRFPValue * (std::log(phiValue) - std::log(currLambdaPrime + phiValue)))
 						   + ((currNumCodonsInMRNA * currAlpha) * (std::log(currLambdaPrime) - std::log(currLambdaPrime + phiValue)));
+    //my_print("Loglikelihood for alpha = % and lambda = % is %", currAlpha, currLambdaPrime, logLikelihood);
 
 	return logLikelihood;
 }
@@ -116,7 +117,7 @@ void PAModel::calculateLogLikelihoodRatioPerGroupingPerCategory(std::string grou
 		unsigned lambdaPrimeCategory = parameter->getSelectionCategory(mixtureElement);
 		unsigned synthesisRateCategory = parameter->getSynthesisRateCategory(mixtureElement);
 		// get non codon specific values, calculate likelihood conditional on these
-		double phiValue = parameter->getSynthesisRate(i, synthesisRateCategory, false);
+		double phiValue = parameter->getSynthesisRate(i, /*synthesisRateCategory*/mixtureElement, false);
 		unsigned currRFPValue = gene->geneData.getRFPValue(index, RFPCountColumn);
 		unsigned currNumCodonsInMRNA = gene->geneData.getCodonCountForCodon(index);
 		if (currNumCodonsInMRNA == 0) continue;
@@ -567,9 +568,9 @@ void PAModel::printHyperParameters()
 {
 	for (unsigned i = 0u; i < getNumSynthesisRateCategories(); i++)
 	{
-		my_print("stdDevSynthesisRate posterior estimate for selection category %: %\n", i, parameter->getStdDevSynthesisRate(i));
+		//my_print("stdDevSynthesisRate posterior estimate for selection category %: %\n", i, parameter->getStdDevSynthesisRate(i));
 	}
-	my_print("\t current stdDevSynthesisRate proposal width: %\n", getCurrentStdDevSynthesisRateProposalWidth());
+	//my_print("\t current stdDevSynthesisRate proposal width: %\n", getCurrentStdDevSynthesisRateProposalWidth());
 }
 
 

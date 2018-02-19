@@ -55,10 +55,10 @@ RCPP_MODULE(Parameter_mod)
 		.method("setLastIteration", &Parameter::setLastIteration) //Not a R wrapper
 
 		//Posterior, Variance, and Estimates Functions:
-		.method("getSynthesisRatePosteriorMeanByMixtureElementForGene",
-		        &Parameter::getSynthesisRatePosteriorMeanByMixtureElementForGene)
-		.method("getSynthesisRateVarianceByMixtureElementForGene",
-		        &Parameter::getSynthesisRateVarianceByMixtureElementForGene)
+		.method("getSynthesisRatePosteriorMeanForGene",
+		        &Parameter::getSynthesisRatePosteriorMeanForGene)
+		.method("getSynthesisRateVarianceForGene",
+		        &Parameter::getSynthesisRateVarianceForGene)
 		.method("getEstimatedMixtureAssignmentForGene", &Parameter::getEstimatedMixtureAssignmentForGene,
 		        "returns the mixture assignment for a given gene")
 		.method("getEstimatedMixtureAssignmentProbabilitiesForGene", &Parameter::getEstimatedMixtureAssignmentProbabilitiesForGene,
@@ -68,6 +68,7 @@ RCPP_MODULE(Parameter_mod)
 		.method("getStdDevSynthesisRateVariance", &Parameter::getStdDevSynthesisRateVariance)
 		.method("getCodonSpecificVariance", &Parameter::getCodonSpecificVarianceForCodon)
         .method("getCodonSpecificQuantile", &Parameter::getCodonSpecificQuantileForCodon)
+        .method("getExpressionQuantile", &Parameter::getExpressionQuantileForGene)
 
 		//Other Functions:
 		.method("getMixtureAssignment", &Parameter::getMixtureAssignmentR)
@@ -77,7 +78,7 @@ RCPP_MODULE(Parameter_mod)
 		//setNumMixtureElements it taken care in the properties section below
 
 		//Other Functions:
-		.method("calculateSelectionCoefficients", &ROCParameter::calculateSelectionCoefficientsR)
+		.method("calculateSelectionCoefficients", &Parameter::calculateSelectionCoefficientsR)
 
 
 

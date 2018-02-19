@@ -51,7 +51,7 @@ plot.Rcpp_ROCModel <- function(x, genome = NULL, samples = 100, mixture = 1,
   # need expression values to know range
   num.genes <- length(genes.in.mixture)
   expressionValues <- unlist(lapply(genes.in.mixture, function(geneIndex){
-    parameter$getSynthesisRatePosteriorMeanByMixtureElementForGene(samples, geneIndex, expressionCategory)
+    parameter$getSynthesisRatePosteriorMeanForGene(samples, geneIndex, FALSE)
     }))  
   expressionValues <- log10(expressionValues)
   genome <- genome$getGenomeForGeneIndices(genes.in.mixture, simulated)
@@ -158,7 +158,7 @@ plot.Rcpp_FONSEModel <- function(x, genome, samples = 100, mixture = 1,
   # need expression values to know range
   num.genes <- length(genes.in.mixture)
   expressionValues <- unlist(lapply(genes.in.mixture, function(geneIndex){
-      parameter$getSynthesisRatePosteriorMeanByMixtureElementForGene(samples, geneIndex, expressionCategory)
+      parameter$getSynthesisRatePosteriorMeanForGene(samples, geneIndex, FALSE)
     }))  
 
   expressionValues <- log10(expressionValues)

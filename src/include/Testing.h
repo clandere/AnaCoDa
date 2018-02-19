@@ -17,7 +17,7 @@ int testGene();
 void testGenomePAHelper(Genome* genome, bool simulated); //Only used internally for testGenome
 bool testGenomeSimulatedPAEqualityHelper(Genome genome1, Genome genome2); //Only used internally for testGenome
 int testGenome(std::string testFileDir);
-int testParameter();
+int testParameter(std::string testFileDir);
 //int testParameterWithFile(std::string filename); //TODO: Rework or remove
 int testCovarianceMatrix();
 //int testPAParameter(); //TODO: Rework or remove

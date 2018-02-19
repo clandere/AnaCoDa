@@ -604,15 +604,22 @@ PANSEParameter::PANSEParameter(std::vector<double> stdDevSynthesisRate, std::vec
   std::vector<std::vector<unsigned>> thetaKMatrix;
   thetaKMatrix.resize(_numMixtures);
 
+	for (unsigned i = 0; i < _numMixtures; i++)
+	{
+		std::vector<unsigned> temp(2, 0);
+		thetaKMatrix[i] = temp;
+	}
+
+
   unsigned index = 0;
-  for (unsigned i = 0; i < _numMixtures; i++)
-  {
-    for (unsigned j = 0; j < 2; j++, index++)
-    {
-      thetaKMatrix[i].push_back(_matrix[index]);
-    }
-  }
-  initParameterSet(stdDevSynthesisRate, _matrix.size() / 2, geneAssignment, thetaKMatrix, splitSer);
+  for (unsigned j = 0; j < 2; j++)
+	{
+		for (unsigned i = 0; i < _numMixtures; i++,index++)
+		{
+			thetaKMatrix[i][j] = _matrix[index];
+		}
+	}
+  initParameterSet(stdDevSynthesisRate, _numMixtures, geneAssignment, thetaKMatrix, splitSer, "");
   initPANSEParameterSet();
 
 }

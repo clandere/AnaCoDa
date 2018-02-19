@@ -9,8 +9,7 @@ writeMCMCObject(mcmc, file)
 \arguments{
 \item{mcmc}{MCMC object that has run the model fitting algorithm.}
 
-\item{file}{A filename where the data will be stored.
-The file should end with the extension "Rdat".}
+\item{file}{A filename where the data will be stored.}
 }
 \value{
 This function has no return value.
@@ -19,6 +18,30 @@ This function has no return value.
 \code{writeMCMCObject} stores the MCMC information from the 
 model fitting run in a file.
 }
-\details{
-None.
+\examples{
+
+## saving the MCMC object after model fitting
+genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+
+genome <- initializeGenomeObject(file = genome_file)
+sphi_init <- c(1,1)
+numMixtures <- 2
+geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+                                       num.mixtures = numMixtures, 
+                                       gene.assignment = geneAssignment, 
+                                       mixture.definition = "allUnique")
+samples <- 2500
+thinning <- 50
+adaptiveWidth <- 25
+mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, 
+                             adaptive.width=adaptiveWidth, est.expression=TRUE, 
+                             est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+divergence.iteration <- 10
+\dontrun{
+runMCMC(mcmc = mcmc, genome = genome, model = model, 
+        ncores = 4, divergence.iteration = divergence.iteration)
+writeMCMCObject(mcmc = mcmc, file = file.path(tempdir(), "file.Rda"))
+
+}
 }

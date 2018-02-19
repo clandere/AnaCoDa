@@ -23,7 +23,21 @@ therefore this custom save function is provided (see \link{loadParameterObject})
 }
 \examples{
 \dontrun{
-writeParameterObject(parameter, "file.Rda")
+
+genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+
+genome <- initializeGenomeObject(file = genome_file)
+sphi_init <- c(1,1)
+numMixtures <- 2
+geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+                                       num.mixtures = numMixtures, 
+                                       gene.assignment = geneAssignment, 
+                                       mixture.definition = "allUnique")
+
+## writing an empty parameter object as the runMCMC routine was not called yet
+writeParameterObject(parameter = parameter, file = file.path(tempdir(), "file.Rda"))
+
 }
 
 }

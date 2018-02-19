@@ -223,6 +223,7 @@ void ROCParameter::initROCValuesFromFile(std::string filename)
 					while (iss >> val)
 					{
 						noiseOffset.push_back(val);
+						noiseOffset_proposed.push_back(val);
 					}
 				}
 				else if (variableName == "observedSynthesisNoise")
@@ -269,6 +270,7 @@ void ROCParameter::initROCValuesFromFile(std::string filename)
 	input.close();
 
 	//init other values
+	numAcceptForNoiseOffset.resize(obsPhiSets, 0);
 	bias_csp = 0;
 	proposedCodonSpecificParameter[dM].resize(numMutationCategories);
 	proposedCodonSpecificParameter[dEta].resize(numSelectionCategories);
@@ -857,17 +859,16 @@ ROCParameter::ROCParameter(std::vector<double> stdDevSynthesisRate, std::vector<
 {
 	unsigned _numMixtures = _matrix.size() / 2;
 	std::vector<std::vector<unsigned>> thetaKMatrix;
-	thetaKMatrix.resize(_numMixtures);
-
+	thetaKMatrix.resize(_numMixtures, std::vector<unsigned> (2, 0));
 	unsigned index = 0;
-	for (unsigned i = 0; i < _numMixtures; i++)
+	for (unsigned j = 0; j < 2; j++)
 	{
-		for (unsigned j = 0; j < 2; j++, index++)
+		for (unsigned i = 0; i < _numMixtures; i++,index++)
 		{
-			thetaKMatrix[i].push_back(_matrix[index]);
+			thetaKMatrix[i][j] = _matrix[index];
 		}
 	}
-	initParameterSet(stdDevSynthesisRate, _matrix.size() / 2, geneAssignment, thetaKMatrix, splitSer);
+	initParameterSet(stdDevSynthesisRate, _numMixtures, geneAssignment, thetaKMatrix, splitSer, "");
 	initROCParameterSet();
 
 }

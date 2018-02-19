@@ -1887,6 +1887,7 @@ int testGenome(std::string testFileDir)
 
     //reuse generic vector of unsigned integers
     uVector = {0, 1, 2, 3};
+    //uVector = {1, 2, 3, 4};  
 
     if (!(genome1 == genome1.getGenomeForGeneIndices(uVector, false)))
     {
@@ -2197,7 +2198,7 @@ int testGenome(std::string testFileDir)
  * that are not exposed to RCPP already.
  * Returns 0 if successful, 1 if error found.
 */
-int testParameter()
+int testParameter(std::string testFileDir)
 {
     Parameter parameter;
     int error = 0;
@@ -2229,8 +2230,8 @@ int testParameter()
      * Thus, let:
     */
     Genome genome;
-    genome.readFasta("/Users/hollisbui/RibModelDev/data/twoMixtures/simulatedAllUniqueR.fasta");
-    //genome.readRFPData("/Users/hollisbui/RibModelDev/data/rfp/rfp.counts.by.codon.and.gene.GSE63789.wt.csv");
+    std::string file = testFileDir + "/" + "simulatedAllUniqueR.fasta";
+    genome.readFasta(file);
 
     unsigned numMixtures = 3;
     std::vector<double> stdDev(numMixtures, 1);
@@ -2249,7 +2250,7 @@ int testParameter()
         {
             if (i < 961) geneAssignment[i] = 0u;
             else if (i < 1418) geneAssignment[i] = 1u;
-            else geneAssignment[i] = 0u;
+            else geneAssignment[i] = 2u;
         }
     }
     std::vector<std::vector<unsigned>> mixtureDefinitionMatrix;
@@ -3105,8 +3106,6 @@ int testParameter()
     else
         error = 0; //Reset for next function.
 
-    //parameter.writeBasicRestartFile("/Users/hollisbui/HollisFile.txt");
-
     return globalError;
 }
 
@@ -3424,7 +3423,6 @@ int testPAParameter()
         error = 0; //Reset for next function.
 
     //parameter.InitializeSynthesisRate(genome, stdDev[0]);
-    //parameter.writeBasicRestartFile("/Users/hollisbui/HollisFile2.txt");
 
     return globalError;
 }
@@ -3439,8 +3437,8 @@ int testPAParameter()
 */
 int testMCMCAlgorithm()
 {
-	unsigned samples = 10;
-	unsigned thinning = 10;
+    unsigned samples = 10;
+    unsigned thinning = 10;
     int error = 0;
     int globalError = 0;
 

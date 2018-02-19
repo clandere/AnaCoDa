@@ -20,3 +20,14 @@ the information in the file given.
 This MCMC object is not intended to be used to do another model fitting, only
 to graph the stored results.
 }
+\examples{
+
+## loading mcmc objects from the filesystem
+\dontrun{
+# load one mcmc object
+mcmc <- loadMCMCObject(files = "mcmc.Rda")
+
+# load and combine multiple mcmc objects. Useful when using checkpointing
+mcmc <- loadMCMCObject(files = c("mcmc1.Rda", "mcmc2.Rda"))
+}
+}

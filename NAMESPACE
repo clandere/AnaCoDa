@@ -13,7 +13,6 @@ importFrom(utils, write.csv)
 
 S3method(length, Rcpp_Genome)
 S3method(summary, Rcpp_Genome)
-S3method(getCSPEstimates, Rcpp_Parameter)
 S3method(writeParameterObject, Rcpp_ROCParameter)
 S3method(writeParameterObject, Rcpp_PAParameter)
 S3method(writeParameterObject, Rcpp_PANSEParameter)
@@ -38,9 +37,12 @@ export(
 "initializeParameterObject",
 "getCSPEstimates",
 "getMixtureAssignmentEstimate",
-"getExpressionEstimatesForMixture",
+"getExpressionEstimates",
 "writeParameterObject",
 "loadParameterObject",
+"getTrace",
+"getSelectionCoefficients",
+#"geom_mean",
 
 ## Model object
 "initializeModelObject",
@@ -49,6 +51,12 @@ export(
 "initializeGenomeObject",
 "getCodonCountsForAA",
 "getNames",
+"addObservedSynthesisRateSet",
+"getObservedSynthesisRateSet",
+"getCAIweights",
+"getCAI",
+"getNc",
+"getNcAA",
 
 ## MCMC object
 "initializeMCMCObject",

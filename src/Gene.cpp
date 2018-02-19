@@ -181,13 +181,13 @@ void Gene::setSequence(std::string _seq)
 	{
 		bool check = geneData.processSequence(seq);
 		if (!check)
-			my_printError("WARNING: Error with gene %\nBad codons found!\n", id);
+			my_printError("WARNING: Error in gene % \nBad codons found!\n", id);
 	}
 	else
-    {
+    	{
 		my_printError("WARNING: Gene: % has sequence length NOT multiple of 3!\n", id);
-        my_printError("Gene data is NOT processed!\nValid characters are A,C,T,G\n\n");
-    }
+        	my_printError("Gene data is NOT processed!\nValid characters are A,C,T,G\n\n");
+    	}
 }
 
 /* setPASequence (NOT EXPOSED)
@@ -218,7 +218,7 @@ void Gene::setPASequence(std::vector<std::vector<int>> table)
         my_printError("WARNING: Error with gene %\nBad codons found!\n", id);
 }
 
-/* setPASequence (NOT EXPOSED)
+/* setPANSE Sequence (NOT EXPOSED)
  * Arguments: A table-styled vector (based on lines of input) of integer vectors (storing actual values).
  * The argument is intended to be derived from solely Genome::readRFPData,
  TODO: Needs to be adjusted to maintain rfp position*/

@@ -55,6 +55,12 @@
 #' 
 #' @param init.sepsilon specifies the initial value for sepsilon. default is 0.1
 #' 
+#' @param init.w.obs.phi TRUE: initialize phi values with observed phi values 
+#' (data from RNAseq, mass spectrometry, ribosome footprinting) Default is FALSE. 
+#' If multiple observed phi values exist for a gene, the geometric mean of these values is used as initial phi.
+#' When using this function, one should remove any genes with 
+#' missing phi values, as these genes will not have an initial phi value.
+#' 
 #' @return parameter Returns an initialized Parameter object.
 #' 
 #' @description \code{initializeParameterObject} initializes a new parameter object or reconstructs one from a restart file
@@ -69,11 +75,38 @@
 #' where each row represents a mixture, the first column represents the mutation
 #' category, and the second column represents the selection category.
 #' Another example would be mixture.definition = "selectionShared" and numMixtures = 4 (
-#' \code{matrix(c(1,2,3, 4,1,1,1,1), ncol=2)}).
+#' \code{matrix(c(1,2,3,4,1,1,1,1), ncol=2)}).
 #' In this case, the selection category is the same for every mixture. If a matrix
 #' is given, and it is valid, then the mutation/selection relationship will be
 #' defined by the given matrix and the keyword will be ignored. A matrix should only
 #' be given in cases where the keywords would not create the desired matrix.
+#' 
+#' @examples 
+#' 
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#' restart_file <- system.file("extdata", "restart_file.rst", package = "AnaCoDa")
+#' 
+#' genome <- initializeGenomeObject(file = genome_file)
+#' 
+#' ## initialize a new parameter object
+#' sphi_init <- 1
+#' numMixtures <- 1
+#' geneAssignment <- rep(1, length(genome))
+#' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+#'                                        num.mixtures = numMixtures, 
+#'                                        gene.assignment = geneAssignment, 
+#'                                        mixture.definition = "allUnique")
+#' 
+#' ## re-initialize a parameter object from a restart file. Useful for checkpointing
+#' parameter <- initializeParameterObject(init.with.restart.file = restart_file)
+#' 
+#' ## initialize a parameter object with a custon mixture definition matrix
+#' def.matrix <- matrix(c(1,1,1,2), ncol=2)
+#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' parameter <- initializeParameterObject(genome = genome, sphi = c(0.5, 2), num.mixtures = 2,
+#'                                        gene.assignment = geneAssignment,
+#'                                        mixture.definition.matrix = def.matrix)
+#' 
 
 initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures = 1, 
                                     gene.assignment = NULL, initial.expression.values = NULL,
@@ -81,7 +114,8 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
                                     mixture.definition = "allUnique", 
                                     mixture.definition.matrix = NULL,
                                     init.with.restart.file = NULL, mutation.prior.sd = 0.35, 
-				    init.csp.variance = 0.0025, init.sepsilon = 0.1){
+				                            init.csp.variance = 0.0025, init.sepsilon = 0.1, 
+				                            init.w.obs.phi=FALSE){
   # check input integrity
   if(is.null(init.with.restart.file)){
     if(length(sphi) != num.mixtures){
@@ -96,8 +130,36 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
     if(num.mixtures < 1){
       stop("num. mixture has to be a positive non-zero value!\n")
     }    
-    #TODO: should we check integrity of other values, such as numMixtures being
-    #positive?
+    if (!is.null(sphi)) {
+      if (length(sphi) != num.mixtures) {
+        stop("sphi must be a vector of length numMixtures\n")
+      }
+    }
+    if (!is.null(initial.expression.values)) {
+      if (length(initial.expression.values) != length.Rcpp_Genome(genome)) {
+        stop("initial.expression.values must have length equal to the number of genes in the Genome object\n")
+      }
+    }
+    if (!identical(split.serine, TRUE) && !identical(split.serine, FALSE)) {
+      stop("split.serine must be a boolean value\n")
+    }
+    if (mixture.definition != "allUnique" && mixture.definition != "mutationShared" &&
+        mixture.definition != "selectionShared") {
+      stop("mixture.definition must be \"allUnique\", \"mutationShared\", or \"selectionShared\". Default is \"allUnique\"\n")
+    }
+    if (mutation.prior.sd < 0) {
+      stop("mutation.prior.sd should be positive\n")
+    }
+    if (init.csp.variance < 0) {
+      stop("init.csp.variance should be positive\n")
+    } 
+    if (init.sepsilon < 0) {
+      stop("init.sepsilon should be positive\n")
+    }
+  } else {
+      if (!file.exists(init.with.restart.file)) {
+        stop("init.with.restart.file provided does not exist\n")
+      }
   }
 
   
@@ -108,7 +170,7 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
       parameter <- initializeROCParameterObject(genome, sphi, num.mixtures, 
                                                 gene.assignment, initial.expression.values, split.serine, 
                             mixture.definition, mixture.definition.matrix, 
-                            mutation.prior.sd, init.csp.variance, init.sepsilon)    
+                            mutation.prior.sd, init.csp.variance, init.sepsilon,init.w.obs.phi)    
     }else{
       parameter <- new(ROCParameter, init.with.restart.file)
     }
@@ -116,7 +178,7 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
     if(is.null(init.with.restart.file)){
       parameter <- initializeFONSEParameterObject(genome, sphi, num.mixtures, 
                                                   gene.assignment, initial.expression.values, split.serine, 
-                            mixture.definition, mixture.definition.matrix, init.csp.variance)
+                            mixture.definition, mixture.definition.matrix, init.csp.variance,init.w.obs.phi)
     }else{
       parameter <- new(FONSEParameter, init.with.restart.file)
     }
@@ -124,7 +186,7 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
     if(is.null(init.with.restart.file)){
       parameter <- initializePAParameterObject(genome, sphi, num.mixtures, 
                                                 gene.assignment, initial.expression.values, split.serine, 
-                            mixture.definition, mixture.definition.matrix, init.csp.variance) 
+                            mixture.definition, mixture.definition.matrix, init.csp.variance,init.w.obs.phi) 
     }else{
       parameter <- new(PAParameter, init.with.restart.file)
     }
@@ -132,7 +194,7 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
     if(is.null(init.with.restart.file)){
       parameter <- initializePANSEParameterObject(genome, sphi, num.mixtures, 
                                                 gene.assignment, initial.expression.values, split.serine, 
-                            mixture.definition, mixture.definition.matrix, init.csp.variance) 
+                            mixture.definition, mixture.definition.matrix, init.csp.variance,init.w.obs.phi) 
     }else{
       parameter <- new(PANSEParameter, init.with.restart.file)
     }
@@ -148,7 +210,7 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
 initializeROCParameterObject <- function(genome, sphi, numMixtures, geneAssignment,
                       expressionValues = NULL, split.serine = TRUE,
                       mixture.definition = "allUnique", 
-                      mixture.definition.matrix = NULL, mutation_prior_sd = 0.35, init.csp.variance = 0.0025, init.sepsilon = 0.1){
+                      mixture.definition.matrix = NULL, mutation_prior_sd = 0.35, init.csp.variance = 0.0025, init.sepsilon = 0.1,init.w.obs.phi=FALSE){
 
   if(is.null(mixture.definition.matrix)){ 
     # keyword constructor
@@ -158,19 +220,40 @@ initializeROCParameterObject <- function(genome, sphi, numMixtures, geneAssignme
     #matrix constructor
     mixture.definition <- c(mixture.definition.matrix[, 1], 
                             mixture.definition.matrix[, 2])
-    parameter <- new(ROCParameter, as.vector(sphi), numMixtures, geneAssignment, 
+    parameter <- new(ROCParameter, as.vector(sphi), geneAssignment, 
                      mixture.definition, split.serine)
   }
   
   
   # initialize expression values
-  if(is.null(expressionValues)){
+  if(is.null(expressionValues) && init.w.obs.phi == F)
+  {
     parameter$initializeSynthesisRateByGenome(genome, mean(sphi))
-  }else{
+    
+  } 
+  else if(init.w.obs.phi == T && is.null(expressionValues))
+  {
+    observed.phi <- getObservedSynthesisRateSet(genome)
+    if (ncol(observed.phi)-1 > 1)
+    {
+      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geom_mean,MARGIN = 1)
+    }
+    else
+    {
+      observed.phi <- observed.phi[,2]
+    }
+    parameter$initializeSynthesisRateByList(observed.phi)
+  }
+  else if (!is.null(expressionValues) && init.w.obs.phi == F)
+  {
     parameter$initializeSynthesisRateByList(expressionValues)
   }
+  else
+  {
+    stop("expressionValues is not NULL and init.w.obs.phi == TRUE. Please choose only one of these options.")
+  }
   
-  n.obs.phi.sets <- ncol(getObservedSynthesisRateSet(genome))
+  n.obs.phi.sets <- ncol(getObservedSynthesisRateSet(genome)) - 1
   parameter$setNumObservedSynthesisRateSets(n.obs.phi.sets)
 
   parameter$mutation_prior_sd <- mutation_prior_sd
@@ -189,7 +272,7 @@ initializeROCParameterObject <- function(genome, sphi, numMixtures, geneAssignme
 initializePAParameterObject <- function(genome, sphi, numMixtures, geneAssignment, 
                           expressionValues = NULL, split.serine = TRUE, 
                           mixture.definition = "allUnique", 
-                          mixture.definition.matrix = NULL, init.csp.variance){
+                          mixture.definition.matrix = NULL, init.csp.variance,init.w.obs.phi=FALSE){
 
   if(is.null(mixture.definition.matrix))
   { # keyword constructor
@@ -199,16 +282,38 @@ initializePAParameterObject <- function(genome, sphi, numMixtures, geneAssignmen
     #matrix constructor
     mixture.definition <- c(mixture.definition.matrix[, 1], 
                             mixture.definition.matrix[, 2])
-    parameter <- new(PAParameter, as.vector(sphi), numMixtures, geneAssignment, 
+    parameter <- new(PAParameter, as.vector(sphi), geneAssignment, 
                      mixture.definition, split.serine)
   }
   
   
   # initialize expression values
-  if(is.null(expressionValues)){
-    parameter$initializeSynthesisRateByGenome(genome, sphi)
-  }else{
+  # initialize expression values
+  if(is.null(expressionValues) && init.w.obs.phi == F)
+  {
+    parameter$initializeSynthesisRateByGenome(genome, mean(sphi))
+    
+  } 
+  else if(init.w.obs.phi == T && is.null(expressionValues))
+  {
+    observed.phi <- getObservedSynthesisRateSet(genome)
+    if (ncol(observed.phi)-1 > 1)
+    {
+      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geom_mean,MARGIN = 1)
+    }
+    else
+    {
+      observed.phi <- observed.phi[,2]
+    }
+    parameter$initializeSynthesisRateByList(observed.phi)
+  }
+  else if (!is.null(expressionValues) && init.w.obs.phi == F)
+  {
     parameter$initializeSynthesisRateByList(expressionValues)
+  }
+  else
+  {
+    stop("expressionValues is not NULL and init.w.obs.phi == TRUE. Please choose only one of these options.")
   }
   
   ## TODO (Cedric): use init.csp.variance to set initial proposal width for CSP parameters
@@ -220,7 +325,7 @@ initializePAParameterObject <- function(genome, sphi, numMixtures, geneAssignmen
 initializePANSEParameterObject <- function(genome, sphi, numMixtures, geneAssignment, 
                           expressionValues = NULL, split.serine = TRUE, 
                           mixture.definition = "allUnique", 
-                          mixture.definition.matrix = NULL, init.csp.variance){
+                          mixture.definition.matrix = NULL, init.csp.variance,init.w.obs.phi=FALSE){
 
   if(is.null(mixture.definition.matrix))
   { # keyword constructor
@@ -230,16 +335,38 @@ initializePANSEParameterObject <- function(genome, sphi, numMixtures, geneAssign
     #matrix constructor
     mixture.definition <- c(mixture.definition.matrix[, 1], 
                             mixture.definition.matrix[, 2])
-    parameter <- new(PANSEParameter, as.vector(sphi), numMixtures, geneAssignment, 
+    parameter <- new(PANSEParameter, as.vector(sphi), geneAssignment, 
                      mixture.definition, split.serine)
   }
   
   
   # initialize expression values
-  if(is.null(expressionValues)){
-    parameter$initializeSynthesisRateByGenome(genome, sphi)
-  }else{
+  # initialize expression values
+  if(is.null(expressionValues) && init.w.obs.phi == F)
+  {
+    parameter$initializeSynthesisRateByGenome(genome, mean(sphi))
+    
+  } 
+  else if(init.w.obs.phi == T && is.null(expressionValues))
+  {
+    observed.phi <- getObservedSynthesisRateSet(genome)
+    if (ncol(observed.phi)-1 > 1)
+    {
+      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geom_mean,MARGIN = 1)
+    }
+    else
+    {
+      observed.phi <- observed.phi[,2]
+    }
+    parameter$initializeSynthesisRateByList(observed.phi)
+  }
+  else if (!is.null(expressionValues) && init.w.obs.phi == F)
+  {
     parameter$initializeSynthesisRateByList(expressionValues)
+  }
+  else
+  {
+    stop("expressionValues is not NULL and init.w.obs.phi == TRUE. Please choose only one of these options.")
   }
   
   return (parameter)
@@ -249,7 +376,7 @@ initializePANSEParameterObject <- function(genome, sphi, numMixtures, geneAssign
 initializeFONSEParameterObject <- function(genome, sphi, numMixtures, 
                         geneAssignment, expressionValues = NULL, split.serine = TRUE,
                         mixture.definition = "allUnique", 
-                        mixture.definition.matrix = NULL, init.csp.variance){
+                        mixture.definition.matrix = NULL, init.csp.variance,init.w.obs.phi=FALSE){
 
   # create Parameter object
   if(is.null(mixture.definition.matrix))
@@ -260,18 +387,39 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
     #matrix constructor
     mixture.definition <- c(mixture.definition.matrix[, 1], 
                             mixture.definition.matrix[, 2])
-    parameter <- new(FONSEParameter, as.vector(sphi), numMixtures, geneAssignment, 
+    parameter <- new(FONSEParameter, as.vector(sphi), geneAssignment, 
                      mixture.definition, split.serine)
   }
   
   
   # initialize expression values
-  if(is.null(expressionValues)){
-    parameter$initializeSynthesisRateByGenome(genome, sphi)
-  }else{
+  # initialize expression values
+  if(is.null(expressionValues) && init.w.obs.phi == F)
+  {
+    parameter$initializeSynthesisRateByGenome(genome, mean(sphi))
+    
+  } 
+  else if(init.w.obs.phi == T && is.null(expressionValues))
+  {
+    observed.phi <- getObservedSynthesisRateSet(genome)
+    if (ncol(observed.phi)-1 > 1)
+    {
+      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geom_mean,MARGIN = 1)
+    }
+    else
+    {
+      observed.phi <- observed.phi[,2]
+    }
+    parameter$initializeSynthesisRateByList(observed.phi)
+  }
+  else if (!is.null(expressionValues) && init.w.obs.phi == F)
+  {
     parameter$initializeSynthesisRateByList(expressionValues)
   }
-  
+  else
+  {
+    stop("expressionValues is not NULL and init.w.obs.phi == TRUE. Please choose only one of these options.")
+  }
   parameter <- initializeCovarianceMatrices(parameter, genome, numMixtures, geneAssignment, init.csp.variance)
   
   return(parameter)
@@ -281,7 +429,7 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
 
 #' Return Codon Specific Paramters (or write to csv) estimates as data.frame
 #' 
-#' @param parameter parameter on object created by \code{initializeParameterObject}.
+#' @param parameter parameter an object created by \code{initializeParameterObject}.
 #' 
 #' @param filename Posterior estimates will be written to file instead of returned if specified (format: csv).
 #' 
@@ -296,7 +444,37 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
 #' 
 #' @description \code{getCSPEstimates} returns the codon specific
 #' parameter estimates for a given parameter and mixture or write it to a csv file.
+#'
+#' @examples  
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#'
+#' genome <- initializeGenomeObject(file = genome_file)
+#' sphi_init <- c(1,1)
+#' numMixtures <- 2
+#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+#'                                        num.mixtures = numMixtures, 
+#'                                        gene.assignment = geneAssignment, 
+#'                                        mixture.definition = "allUnique")
+#' model <- initializeModelObject(parameter = parameter, model = "ROC")
+#' samples <- 2500
+#' thinning <- 50
+#' adaptiveWidth <- 25
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, 
+#'                              adaptive.width=adaptiveWidth, est.expression=TRUE, 
+#'                              est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+#' divergence.iteration <- 10
+#' \dontrun{
+#' runMCMC(mcmc = mcmc, genome = genome, model = model, 
+#'         ncores = 4, divergence.iteration = divergence.iteration)
 #' 
+#' ## return estimates for codon specific parameters
+#' csp_mat <- getCSPEstimates(parameter, CSP="Mutation")
+#' 
+#' # write the result directly to the filesystem as a csv file. No values are returned
+#' getCSPEstimates(parameter, , filename=file.path(tempdir(), "csp_out.csv"), CSP="Mutation")
+#' 
+#' }
 #' 
 getCSPEstimates <- function(parameter, filename=NULL, CSP="Mutation", mixture = 1, samples = 10){
   Amino_Acid <- c()
@@ -388,6 +566,70 @@ getCSPEstimates <- function(parameter, filename=NULL, CSP="Mutation", mixture = 
 
 
 
+#' Calculate Selection coefficients
+#' 
+#' \code{getSelectionCoefficients} calculates the selection coefficient of each codon in each gene.
+#' 
+#' @param genome A genome object initialized with 
+#' \code{\link{initializeGenomeObject}} to add observed expression data.
+#' 
+#' @param parameter an object created by \code{initializeParameterObject}.
+#' 
+#' @param samples The number of samples used for the posterior estimates.
+#' 
+#' @return A matrix with selection coefficients.
+#' 
+#' @examples 
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#'
+#' genome <- initializeGenomeObject(file = genome_file)
+#' sphi_init <- 1
+#' numMixtures <- 1
+#' geneAssignment <- rep(1, length(genome))
+#' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+#'                                        num.mixtures = numMixtures, 
+#'                                        gene.assignment = geneAssignment, 
+#'                                        mixture.definition = "allUnique")
+#' model <- initializeModelObject(parameter = parameter, model = "ROC")
+#' samples <- 2500
+#' thinning <- 50
+#' adaptiveWidth <- 25
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, 
+#'                              adaptive.width=adaptiveWidth, est.expression=TRUE, 
+#'                              est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+#' divergence.iteration <- 10
+#' \dontrun{
+#' runMCMC(mcmc = mcmc, genome = genome, model = model, 
+#'         ncores = 4, divergence.iteration = divergence.iteration)
+#' 
+#' ## return estimates for selection coefficients s for each codon in each gene
+#' selection.coefficients <- getSelectionCoefficients(genome = genome, 
+#'                                                    parameter = parameter, samples = 1000)
+#' }
+#' 
+getSelectionCoefficients <- function(genome, parameter, samples = 100)
+{
+  sel.coef <- parameter$calculateSelectionCoefficients(samples)
+  grouplist <- parameter$getGroupList()
+  codon.names <- NULL
+  if(class(parameter) == "Rcpp_ROCParameter" || class(parameter) == "Rcpp_FONSEParameter")
+  {
+    for(aa in grouplist)
+      codon.names <- c(codon.names, AAToCodon(aa))
+    
+    sel.coef <- sel.coef[, -c(60, 61)] # The matrix is to large as it could store M and W which is not used here.
+  }else{
+    codon.names <- grouplist
+  }
+  
+  gene.names <- getNames(genome)
+  
+  colnames(sel.coef) <- codon.names
+  rownames(sel.coef) <- gene.names
+  return(sel.coef)  
+}
+
+
 # Uses a multinomial logistic regression to estimate the codon specific parameters for every category.
 # Delta M is the intercept - and Delta eta is the slope of the regression.
 # The package VGAM is used to perform the regression.
@@ -431,6 +673,30 @@ splitMatrix <- function(M, r, c){
   return(lapply(1:N, function(i) matrix(cv[[i]], nrow = r)))
 } 
 
+#' extracts an object of traces from a parameter object.
+#'
+#' @param parameter A Parameter object that corresponds to one of the model types.
+#'
+#' @return trace Returns an object of type Trace extracted from the given parameter object
+#'
+#' @examples  
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#'
+#' genome <- initializeGenomeObject(file = genome_file)
+#' sphi_init <- c(1,1)
+#' numMixtures <- 2
+#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+#'                                        num.mixtures = numMixtures, 
+#'                                        gene.assignment = geneAssignment, 
+#'                                        mixture.definition = "allUnique")
+#' 
+#' trace <- getTrace(parameter) # empty trace object since no MCMC was perfomed
+#' 
+getTrace <- function(parameter){
+	return(parameter$getTraceObject())
+}
+
 
 
 #######
@@ -470,7 +736,7 @@ initializeCovarianceMatrices <- function(parameter, genome, numMixtures, geneAss
     if(aa == "M" || aa == "W" || aa == "X") next
     #should go away when CT is up and running
     
-    codonCounts <- getCodonCountsForAA(genome, aa)
+    codonCounts <- getCodonCountsForAA(aa, genome) # ignore column with gene ids
     numCodons <- dim(codonCounts)[2] - 1
     #-----------------------------------------
     # TODO WORKS CURRENTLY ONLY FOR ALLUNIQUE!
@@ -496,7 +762,7 @@ initializeCovarianceMatrices <- function(parameter, genome, numMixtures, geneAss
   # if(aa == "M" || aa == "W" || aa == "X") next
   #should go away when CT is up and running
   
-  #codonCounts <- getCodonCountsForAA(genome, aa)
+  #codonCounts <- getCodonCountsForAA(aa, genome)
   #numCodons <- dim(codonCounts)[2] - 1
   #-----------------------------------------
   # TODO WORKS CURRENTLY ONLY FOR ALLUNIQUE!
@@ -561,17 +827,40 @@ initializeCovarianceMatrices <- function(parameter, genome, numMixtures, geneAss
 #' @details The returned vector is unnamed as gene ids are only stored in the \code{genome} object, 
 #' but the \code{gene.index} vector can be used to match the assignment to the genome.
 #' 
-#' @examples 
+#' @examples  
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#'
+#' genome <- initializeGenomeObject(file = genome_file)
+#' sphi_init <- c(1,1)
+#' numMixtures <- 2
+#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+#'                                        num.mixtures = numMixtures, 
+#'                                        gene.assignment = geneAssignment, 
+#'                                        mixture.definition = "allUnique")
+#' model <- initializeModelObject(parameter = parameter, model = "ROC")
+#' samples <- 2500
+#' thinning <- 50
+#' adaptiveWidth <- 25
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, adaptive.width=adaptiveWidth, 
+#'                              est.expression=TRUE, est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+#' divergence.iteration <- 10
 #' \dontrun{
+#' runMCMC(mcmc = mcmc, genome = genome, model = model, 
+#'         ncores = 4, divergence.iteration = divergence.iteration)
+#' 
 #' # get the mixture assignment for all genes
-#' getMixtureAssignmentEstimate(parameter, 1:length(genome), 1000)
+#' mixAssign <- getMixtureAssignmentEstimate(parameter = parameter, 
+#'                                           gene.index = 1:length(genome), samples = 1000)
 #' 
 #' # get the mixture assignment for a subsample
-#' getMixtureAssignmentEstimate(parameter, 5:100, 1000)
+#' mixAssign <- getMixtureAssignmentEstimate(parameter = parameter, 
+#'                                           gene.index = 5:100, samples = 1000)
 #' # or
-#' getMixtureAssignmentEstimate(parameter, c(10, 30:50, 3, 90), 1000)
+#' mixAssign <- getMixtureAssignmentEstimate(parameter = parameter, 
+#'                                           gene.index = c(10, 30:50, 3, 90), samples = 1000)
 #' }
-
+#' 
 getMixtureAssignmentEstimate <- function(parameter, gene.index, samples)
 {
   mixtureAssignment <- unlist(lapply(gene.index,  function(geneIndex){parameter$getEstimatedMixtureAssignmentForGene(samples, geneIndex)}))
@@ -585,9 +874,9 @@ getMixtureAssignmentEstimate <- function(parameter, gene.index, samples)
 #' 
 #' @param gene.index a integer or vector of integers representing the gene(s) of interesst.
 #' 
-#' @param mixtureAssignment a vector with the same length as \code{gene.index} decsribing the mixture assignment of the gene
-#' 
 #' @param samples number of samples for the posterior estimate
+#'
+#' @param quantiles vector of quantiles, (default: c(0.025, 0.975))
 #' 
 #' @return returns a vector with the mixture assignment of each gene corresbonding to \code{gene.index} in the same order as the genome. 
 #'
@@ -596,30 +885,64 @@ getMixtureAssignmentEstimate <- function(parameter, gene.index, samples)
 #' @details The returned vector is unnamed as gene ids are only stored in the \code{genome} object, 
 #' but the \code{gene.index} vector can be used to match the assignment to the genome.
 #' 
-#' @examples 
+#' @examples  
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#'
+#' genome <- initializeGenomeObject(file = genome_file)
+#' sphi_init <- c(1,1)
+#' numMixtures <- 2
+#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+#'                                        num.mixtures = numMixtures, 
+#'                                        gene.assignment = geneAssignment, 
+#'                                        mixture.definition = "allUnique")
+#' model <- initializeModelObject(parameter = parameter, model = "ROC")
+#' samples <- 2500
+#' thinning <- 50
+#' adaptiveWidth <- 25
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, 
+#'                              adaptive.width=adaptiveWidth, est.expression=TRUE,
+#'                              est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+#' divergence.iteration <- 10
 #' \dontrun{
-#' # get the estimated phi values for all genes assuming they are in mixture 1
-#' getExpressionEstimatesForMixture(parameter, 1:length(genome), rep(1, length(genome), 1000)
+#' runMCMC(mcmc = mcmc, genome = genome, model = model, 
+#'         ncores = 4, divergence.iteration = divergence.iteration)
 #' 
-#' # get the estimated phi values for all genes for the estimated mixture element
-#' mix.assign <- getMixtureAssignmentEstimate(parameter, 1:length(genome), 1000)
-#' getExpressionEstimatesForMixture(parameter, 1:length(genome), mix.assign, 1000)
+#' # get the estimated expression values for all genes based on the mixture 
+#' # they are assigned to at each step
+#' estimatedExpression <- getExpressionEstimates(parameter, 1:length(genome), 1000)
 #' }
-
-getExpressionEstimatesForMixture <- function(parameter, gene.index, mixtureAssignment, samples)
+#' 
+getExpressionEstimates <- function(parameter, gene.index, samples, quantiles=c(0.025, 0.975))
 {
   expressionValues <- unlist(lapply(gene.index, function(geneIndex){ 
-    expressionCategory <- parameter$getSynthesisRateCategoryForMixture(mixtureAssignment[geneIndex]) 
-    parameter$getSynthesisRatePosteriorMeanByMixtureElementForGene(samples, geneIndex, expressionCategory) 
+    parameter$getSynthesisRatePosteriorMeanForGene(samples, geneIndex, FALSE) 
+  }))
+
+  expressionValuesLog <- unlist(lapply(gene.index, function(geneIndex){ 
+    parameter$getSynthesisRatePosteriorMeanForGene(samples, geneIndex, TRUE) 
   }))
   
   expressionStdErr <- sqrt(unlist(lapply(gene.index, function(geneIndex){ 
-    expressionCategory <- parameter$getSynthesisRateCategoryForMixture(mixtureAssignment[geneIndex]) 
-    parameter$getSynthesisRateVarianceByMixtureElementForGene(samples, geneIndex, expressionCategory, T) 
+    parameter$getSynthesisRateVarianceForGene(samples, geneIndex, TRUE, FALSE) 
   }))) / samples
   
-  expr.mat <- cbind(expressionValues, expressionStdErr)
-  colnames(expr.mat) <- c("PHI", "Std_Error")
+  expressionStdErrLog <- sqrt(unlist(lapply(gene.index, function(geneIndex){ 
+    parameter$getSynthesisRateVarianceForGene(samples, geneIndex, TRUE, TRUE) 
+  }))) / samples
+
+  expressionQuantile <- lapply(gene.index, function(geneIndex){ 
+    parameter$getExpressionQuantile(samples, geneIndex, quantiles, FALSE) 
+  })
+  expressionQuantile <- do.call(rbind, expressionQuantile)
+
+  expressionQuantileLog <- lapply(gene.index, function(geneIndex){ 
+    parameter$getExpressionQuantile(samples, geneIndex, quantiles, TRUE) 
+  })
+  expressionQuantileLog <- do.call(rbind, expressionQuantileLog)
+
+  expr.mat <- cbind(expressionValues, expressionValuesLog, expressionStdErr, expressionStdErrLog, expressionQuantile, expressionQuantileLog)
+  colnames(expr.mat) <- c("PHI", "log10.PHI", "Std.Error", "log10.Std.Error", quantiles, paste("log10.", quantiles, sep=""))
   return(expr.mat)
 }
 
@@ -638,7 +961,21 @@ getExpressionEstimatesForMixture <- function(parameter, gene.index, mixtureAssig
 #' 
 #' @examples 
 #' \dontrun{
-#' writeParameterObject(parameter, "file.Rda")
+#' 
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#'
+#' genome <- initializeGenomeObject(file = genome_file)
+#' sphi_init <- c(1,1)
+#' numMixtures <- 2
+#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+#'                                        num.mixtures = numMixtures, 
+#'                                        gene.assignment = geneAssignment, 
+#'                                        mixture.definition = "allUnique")
+#' 
+#' ## writing an empty parameter object as the runMCMC routine was not called yet
+#' writeParameterObject(parameter = parameter, file = file.path(tempdir(), "file.Rda"))
+#' 
 #' }
 #' 
 writeParameterObject <- function(parameter, file)
@@ -663,6 +1000,8 @@ extractBaseInfo <- function(parameter){
   categories <- parameter$getCategories()
   curMixAssignment <- parameter$getMixtureAssignment()
   lastIteration <- parameter$getLastIteration()
+  grouplist <- parameter$getGroupList()
+
   
   varList <- list(stdDevSynthesisRateTraces = stdDevSynthesisRateTraces, 
                     stdDevSynthesisRateAcceptRatTrace = stdDevSynthesisRateAcceptRatTrace,
@@ -676,7 +1015,8 @@ extractBaseInfo <- function(parameter){
                     numSel = numSel,
                     categories = categories,
                     curMixAssignment = curMixAssignment,
-                    lastIteration = lastIteration
+                    lastIteration = lastIteration,
+		    grouplist = grouplist
                     )
   return(varList)
 }
@@ -795,10 +1135,10 @@ writeParameterObject.Rcpp_FONSEParameter <- function(parameter, file)
 #' @examples 
 #' \dontrun{
 #' # load a single parameter object
-#' parameter <- loadParameterObject("path/to/rda/file.Rda")
+#' parameter <- loadParameterObject("parameter.Rda")
 #' 
 #' # load and concatenate multiple parameter object
-#' parameter <- loadParameterObject(c("path/to/rda/file.Rda", "path/to/rda/file2.Rda"))
+#' parameter <- loadParameterObject(c("parameter1.Rda", "parameter2.Rda"))
 #' }
 #' 
 
@@ -852,6 +1192,7 @@ setBaseInfo <- function(parameter, files)
       mixtureAssignment <- tempEnv$paramBase$curMixAssignment
       lastIteration <- tempEnv$paramBase$lastIteration
       max <- tempEnv$paramBase$lastIteration + 1
+      grouplist <- tempEnv$paramBase$grouplist
       
       stdDevSynthesisRateTraces <- vector("list", length = numSelectionCategories)
       for (j in 1:numSelectionCategories) {
@@ -895,6 +1236,10 @@ setBaseInfo <- function(parameter, files)
         stop("The length of the mixture assignment is not the same between files. 
              Make sure the same genome is used on each run.")
       }
+
+      if(length(grouplist) != length(tempEnv$paramBase$grouplist)){
+	stop("Number of Amino Acids/Codons is not the same between files.")	
+      }
       
       curStdDevSynthesisRateTraces <- tempEnv$paramBase$stdDevSynthesisRateTraces
       curStdDevSynthesisRateAcceptanceRateTrace <- tempEnv$paramBase$stdDevSynthesisRateAcceptRatTrace
@@ -934,6 +1279,7 @@ setBaseInfo <- function(parameter, files)
   parameter$numSelectionCategories <- numSelectionCategories
   parameter$setMixtureAssignment(tempEnv$paramBase$curMixAssignment) #want the last in the file sequence
   parameter$setLastIteration(lastIteration)
+  parameter$setGroupList(grouplist)
   
   trace <- parameter$getTraceObject()
   trace$setStdDevSynthesisRateTraces(stdDevSynthesisRateTraces)
@@ -1200,6 +1546,53 @@ loadFONSEParameterObject <- function(parameter, files)
 }
 
 
+
+#' Take the geometric mean of a vector
+#'  
+#' @param x A vector of numerical .
+#' 
+#' @param rm.invalid Boolean value for handling 0, negative, or NA values in the vector. Default is TRUE and will not
+#' include these values in the calculation. If FALSE, these values will be replaced by the value give to \code{default} and will
+#' be included in the calculation.
+#' 
+#' @param default Numerical value that serves as the value to replace 0, negative, or NA values in the calculation when rm.invalid is FALSE.
+#' Default is 1e-5.
+#' 
+#' @return Returns the geometric mean of a vector.
+#' 
+#' @description \code{geom_mean} will calculate the geometric mean of a list of numerical values.
+#' 
+#' @details This function is a special version of the geometric mean specifically for AnaCoda.
+#' Most models in Anacoda assume a log normal distribution for phi values, thus all values in \code{x} are expectd to be positive.
+#' geom_mean returns the geometric mean of a vector and can handle 0, negative, or NA values. 
+#' 
+#' @examples 
+#' x <- c(1, 2, 3, 4)
+#' geom_mean(x)
+#' 
+#' y<- c(1, NA, 3, 4, 0, -1)
+#' # Only take the mean of non-Na values greater than 0
+#' geom_mean(y)
+#' 
+#' # Replace values <= 0 or NAs with a default value 0.001 and then take the mean
+#' geom_mean(y, rm.invalid = FALSE, default = 0.001)
+#' 
+
+
+
+geom_mean <- function(x, rm.invalid = TRUE, default = 1e-5)
+{
+  if(!rm.invalid)
+  {
+    x[x <= 0 | is.na(x)] <- default
+  } else{
+    x <- x[which(x > 0 & !is.na(x))]
+  }
+  total <- prod(x) ^ (1/length(x))
+  return(total)
+}
+
+
 #Intended to combine 2D traces (vector of vectors) read in from C++. The first
 #element of the second trace is omited since it should be the same as the 
 #last value of the first trace.
@@ -1223,3 +1616,8 @@ combineThreeDimensionalTrace <- function(trace1, trace2, max){
     }
   }
 }
+
+
+
+
+

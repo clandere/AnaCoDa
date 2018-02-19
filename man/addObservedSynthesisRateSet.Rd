@@ -8,17 +8,34 @@ addObservedSynthesisRateSet(genome, observed.expression.file,
   match.expression.by.id = TRUE)
 }
 \arguments{
-\item{genome}{A genome object initialized with \code{\link{initializeGenomeObject}} to add observed expression data.}
+\item{genome}{A genome object initialized with 
+\code{\link{initializeGenomeObject}} to add observed expression data.}
 
-\item{observed.expression.file}{A string containing the location of a file containing
-empirical expression rates (optional).}
+\item{observed.expression.file}{A string containing 
+the location of a file containing empirical expression rates (optional).}
 
-\item{match.expression.by.id}{If TRUE (default) observed expression values will be assigned by matching sequence identifier.
+\item{match.expression.by.id}{If TRUE (default) observed expression 
+values will be assigned by matching sequence identifier.
 If FALSE observed expression values will be assigned by order}
 }
 \value{
-gene.names Returns the names of the genes as a vector of strings.
+Returns the genome after adding the new gene expression values
 }
 \description{
-\code{addObservedSynthesisRateSet} returns the observed synthesis rates of the genes within the genome specified.
+\code{addObservedSynthesisRateSet} returns the observed 
+synthesis rates of the genes within the genome specified.
+}
+\examples{
+
+genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+expression_file <- system.file("extdata", "expression.csv", package = "AnaCoDa") 
+## reading genome
+genome <- initializeGenomeObject(file = genome_file)
+
+
+## add expression values after the genome was initiallized, 
+## or adding an additional set of expression values
+genome <- addObservedSynthesisRateSet(genome = genome, 
+                   observed.expression.file = expression_file)
+
 }

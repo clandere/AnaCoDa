@@ -512,12 +512,12 @@ void PAParameter::updateCodonSpecificParameter(std::string grouping)
 	for (unsigned k = 0u; k < numMutationCategories; k++)
 	{
 		double a = currentCodonSpecificParameter[alp][k][i] = proposedCodonSpecificParameter[alp][k][i];
-        my_print("updated alpha is %\n", a);
+        //my_print("updated alpha is %\n", a);
 	}
 	for (unsigned k = 0u; k < numSelectionCategories; k++)
 	{
 		double l = currentCodonSpecificParameter[lmPri][k][i] = proposedCodonSpecificParameter[lmPri][k][i];
-        my_print("updated lambda is %\n", l);
+        //my_print("updated lambda is %\n", l);
 	}
 }
 
@@ -606,15 +606,22 @@ PAParameter::PAParameter(std::vector<double> stdDevSynthesisRate, std::vector<un
   std::vector<std::vector<unsigned>> thetaKMatrix;
   thetaKMatrix.resize(_numMixtures);
 
+	for (unsigned i = 0; i < _numMixtures; i++)
+	{
+		std::vector<unsigned> temp(2, 0);
+		thetaKMatrix[i] = temp;
+	}
+
+
   unsigned index = 0;
-  for (unsigned i = 0; i < _numMixtures; i++)
+  for (unsigned j = 0; j < 2; j++)
   {
-    for (unsigned j = 0; j < 2; j++, index++)
-    {
-      thetaKMatrix[i].push_back(_matrix[index]);
-    }
+	for (unsigned i = 0; i < _numMixtures; i++,index++)
+	{
+			thetaKMatrix[i][j] = _matrix[index];
+	}
   }
-  initParameterSet(stdDevSynthesisRate, _matrix.size() / 2, geneAssignment, thetaKMatrix, splitSer);
+  initParameterSet(stdDevSynthesisRate, _numMixtures, geneAssignment, thetaKMatrix, splitSer, "");
   initPAParameterSet();
 
 }

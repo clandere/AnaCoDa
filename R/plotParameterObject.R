@@ -241,7 +241,8 @@ confidenceInterval.plot <- function(x, y, sd.x=NULL, sd.y=NULL, ...){
 #' @param lag.max Maximum amount of lag to calculate acf. Default is 10*log10(N), where N i the number of observations.
 #' @param plot logical. If TRUE (default) a plot of the acf is created
 #' 
-#' @description The function calculates and by defaults plots the acf and estimates the autocorrelation in the trace.
+#' @description The function calculates and by defaults plots the acf and estimates the autocorrelation in the trace 
+#' 
 #' 
 #' @seealso \code{\link{acfMCMC}}
 
@@ -254,7 +255,7 @@ acfCSP <- function(parameter, csp = "Mutation", numMixtures = 1, samples = NULL,
   }
   if(is.null(samples)){ samples <- round(10*log10(length(trace))) }
   
-  
+  acf.list <- list()
   names.aa <- aminoAcids()
   trace <- parameter$getTraceObject()
   for (aa in names.aa)
@@ -262,17 +263,25 @@ acfCSP <- function(parameter, csp = "Mutation", numMixtures = 1, samples = NULL,
     if (aa == "M" || aa == "W" || aa == "X")
       next
     codons <- AAToCodon(aa, TRUE)
+    codon.list <- list()
     for (i in 1:length(codons))
     {
+      mix.list <- list()
       for (j in 1:numMixtures)
       {
         csp.trace <- trace$getCodonSpecificParameterTraceByMixtureElementForCodon(j, codons[i], paramType, TRUE)
         csp.trace <- csp.trace[(length(csp.trace)-samples):length(csp.trace)]
         csp.acf <- acf(x = csp.trace, lag.max = lag.max, plot = FALSE)
-        header <- paste(csp, aa, codons[i], "Mixture:", j, sep = " ")
-        plot(x = csp.acf, xlab = "Lag time", ylab = "Autocorrelation", main = header)
+        mix.list[[j]] <- csp.acf
+        if (plot)
+        {
+          header <- paste(csp, aa, codons[i], "Mixture:", j, sep = " ")
+          plot(x = csp.acf, xlab = "Lag time", ylab = "Autocorrelation", main = header)
+        }
       }
+      codon.list[[codons[i]]] <-mix.list
     }
+    acf.list[[aa]] <- codon.list
   }
+  return(acf.list)
 }
-

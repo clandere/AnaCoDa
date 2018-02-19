@@ -4,13 +4,13 @@
 \alias{getCodonCountsForAA}
 \title{Get Codon Counts For Each Amino Acid}
 \usage{
-getCodonCountsForAA(genome, aa)
+getCodonCountsForAA(aa, genome)
 }
 \arguments{
+\item{aa}{A one character representation of an amino acid.}
+
 \item{genome}{A genome object from which the counts of each
 codon can be obtained.}
-
-\item{aa}{A one character representation of an amino acid.}
 }
 \value{
 Returns a matrix storing the codonCounts for the given amino acid.
@@ -19,5 +19,17 @@ Returns a matrix storing the codonCounts for the given amino acid.
 provides the codon counts for a fiven amino acid across all genes
 }
 \details{
-The returned matrix containes a row for each gene and a coloumn for each codon.
+The returned matrix containes a row for each gene and a coloumn 
+for each synonymous codon of \code{aa}.
+}
+\examples{
+
+genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+ 
+## reading genome
+genome <- initializeGenomeObject(file = genome_file)
+countsForA <- getCodonCountsForAA("A", genome)
+
+counts <- lapply(X = c("A", "C"), FUN = getCodonCountsForAA, genome = genome)
+
 }

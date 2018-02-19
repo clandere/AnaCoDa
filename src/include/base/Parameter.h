@@ -148,17 +148,20 @@ class Parameter {
 
 		//Posterior, Variance, and Estimates Functions: TODO: test
 		double getStdDevSynthesisRatePosteriorMean(unsigned samples, unsigned mixture);
-		double getSynthesisRatePosteriorMean(unsigned samples, unsigned geneIndex, unsigned mixtureElement);
+		double getSynthesisRatePosteriorMean(unsigned samples, unsigned geneIndex, bool log_scale=false);
 
 		double getCodonSpecificPosteriorMean(unsigned mixtureElement, unsigned samples, std::string &codon,
-			unsigned paramType, bool withoutReference = true);
+			unsigned paramType, bool withoutReference = true, bool byGene = false);
 		double getStdDevSynthesisRateVariance(unsigned samples, unsigned mixture, bool unbiased);
-		double getSynthesisRateVariance(unsigned samples, unsigned geneIndex, unsigned mixtureElement,
-			bool unbiased = true);
+		double getSynthesisRateVariance(unsigned samples, unsigned geneIndex,
+			bool unbiased = true, bool log_scale = false);
 		double getCodonSpecificVariance(unsigned mixtureElement, unsigned samples, std::string &codon,
 			unsigned paramType, bool unbiased, bool withoutReference = true);
-        std::vector<double> getCodonSpecificQuantile(unsigned mixtureElement, unsigned samples, std::string &codon,
+	        std::vector<double> getCodonSpecificQuantile(unsigned mixtureElement, unsigned samples, std::string &codon,
 			unsigned paramType, std::vector<double> probs, bool withoutReference);
+		std::vector<double> getExpressionQuantile(unsigned samples, unsigned geneIndex, 
+			std::vector<double> probs, bool log_scale = false);
+		std::vector<double> calculateQuantile(std::vector<float> &parameterTrace, unsigned samples, std::vector<double> probs, bool log_scale=false);
 		unsigned getEstimatedMixtureAssignment(unsigned samples, unsigned geneIndex);
 		std::vector<double> getEstimatedMixtureAssignmentProbabilities(unsigned samples, unsigned geneIndex);
 
@@ -170,7 +173,7 @@ class Parameter {
 		void setMixtureAssignment(unsigned gene, unsigned value);
 		unsigned getMixtureAssignment(unsigned gene);
 		virtual void setNumObservedPhiSets(unsigned _phiGroupings);
-		virtual std::vector <std::vector <double> > calculateSelectionCoefficients(unsigned sample, unsigned mixture); //TODO: test
+		virtual std::vector <std::vector <double> > calculateSelectionCoefficients(unsigned sample); //TODO: test
 
 
 		//Static Functions: TODO: test
@@ -226,10 +229,8 @@ class Parameter {
 
 
 		//Posterior, Variance, and Estimates Functions:
-		double getSynthesisRatePosteriorMeanByMixtureElementForGene(unsigned samples, unsigned geneIndex,
-			unsigned mixtureElement);
-		double getSynthesisRateVarianceByMixtureElementForGene(unsigned samples, unsigned geneIndex,
-			unsigned mixtureElement, bool unbiased);
+		double getSynthesisRatePosteriorMeanForGene(unsigned samples, unsigned geneIndex, bool log_scale);
+		double getSynthesisRateVarianceForGene(unsigned samples, unsigned geneIndex, bool unbiased, bool log_scale);
 		unsigned getEstimatedMixtureAssignmentForGene(unsigned samples, unsigned geneIndex);
 
 		std::vector<double> getEstimatedMixtureAssignmentProbabilitiesForGene(unsigned samples, unsigned geneIndex);
@@ -238,12 +239,15 @@ class Parameter {
 			unsigned paramType, bool withoutReference);
 		double getCodonSpecificVarianceForCodon(unsigned mixtureElement, unsigned samples, std::string codon,
 			unsigned paramType, bool unbiased, bool withoutReference);
-        std::vector<double> getCodonSpecificQuantileForCodon(unsigned mixtureElement, unsigned samples,
-        	std::string &codon, unsigned paramType, std::vector<double> probs, bool withoutReference);
+        	std::vector<double> getCodonSpecificQuantileForCodon(unsigned mixtureElement, unsigned samples,
+        		std::string &codon, unsigned paramType, std::vector<double> probs, bool withoutReference);
+		std::vector<double> getExpressionQuantileForGene(unsigned samples,
+			unsigned geneIndex, std::vector<double> probs, bool log_scale);
+
 
 
 		//Other Functions:
-		SEXP calculateSelectionCoefficientsR(unsigned sample, unsigned mixture);
+		SEXP calculateSelectionCoefficientsR(unsigned sample);
 		std::vector<unsigned> getMixtureAssignmentR();
 		void setMixtureAssignmentR(std::vector<unsigned> _mixtureAssignment);
 		unsigned getMixtureAssignmentForGeneR(unsigned geneIndex);

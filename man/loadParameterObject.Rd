@@ -23,10 +23,10 @@ be concatenated to one parameter object. See \link{writeParameterObject} for the
 \examples{
 \dontrun{
 # load a single parameter object
-parameter <- loadParameterObject("path/to/rda/file.Rda")
+parameter <- loadParameterObject("parameter.Rda")
 
 # load and concatenate multiple parameter object
-parameter <- loadParameterObject(c("path/to/rda/file.Rda", "path/to/rda/file2.Rda"))
+parameter <- loadParameterObject(c("parameter1.Rda", "parameter2.Rda"))
 }
 
 }

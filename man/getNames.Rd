@@ -18,3 +18,14 @@ gene.names Returns the names of the genes as a vector of strings.
 \description{
 returns the identifiers of the genes within the genome specified.
 }
+\examples{
+
+genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+ 
+## reading genome
+genome <- initializeGenomeObject(file = genome_file)
+
+## return all gene ids for the genome
+geneIDs <- getNames(genome, FALSE)
+
+}
