@@ -12,7 +12,7 @@ The following example illustrates how you would estimates parameters under the R
 
 ```{r, echo = FALSE}
 genome <- initializeGenomeObject(file = "genome.fasta")
-parameter <- initializeParameterObject(genome = genome, sphi = 1, num.mixtures = 1, geneAssignment = rep(1, length(genome)))
+parameter <- initializeParameterObject(genome = genome, sphi = 1, num.mixtures = 1, gene.assignment = rep(1, length(genome)))
 mcmc <- initializeMCMCObject(samples = 5000, thinning = 10, adaptive.width=50)
 model <- initializeModelObject(parameter = parameter, model = "ROC")
 runMCMC(mcmc = mcmc, genome = genome, model = model)
@@ -23,7 +23,7 @@ The following example illustrates how you would estimates parameters under the F
 
 ```{r, echo = FALSE}
 genome <- initializeGenomeObject(file = "genome.fasta")
-parameter <- initializeParameterObject(genome = genome, sphi = 1, num.mixtures = 1, geneAssignment = rep(1, length(genome)))
+parameter <- initializeParameterObject(genome = genome, sphi = 1, num.mixtures = 1, gene.assignment = rep(1, length(genome)))
 mcmc <- initializeMCMCObject(samples = 5000, thinning = 10, adaptive.width=50)
 model <- initializeModelObject(parameter = parameter, model = "FONSE")
 runMCMC(mcmc = mcmc, genome = genome, model = model)
@@ -47,7 +47,7 @@ runMCMC(mcmc = mcmc, genome = genome, model = model)
 
 ```{r, echo = FALSE}
 genome <- initializeGenomeObject(file = "genome.fasta")
-parameter <- initializeParameterObject(genome = genome, sphi = c(1,2,3), num.mixtures = 3, geneAssignment = sample(1:3, length(genome), replace=TRUE))
+parameter <- initializeParameterObject(genome = genome, sphi = c(1,2,3), num.mixtures = 3, gene.assignment = sample(1:3, length(genome), replace=TRUE))
 mcmc <- initializeMCMCObject(samples = 5000, thinning = 10, adaptive.width=50)
 model <- initializeModelObject(parameter = parameter, model = "ROC")
 runMCMC(mcmc = mcmc, genome = genome, model = model)
@@ -58,7 +58,7 @@ runMCMC(mcmc = mcmc, genome = genome, model = model)
 
 ```{r, echo = FALSE}
 genome <- initializeGenomeObject(file = "genome.fasta")
-parameter <- initializeParameterObject(genome = genome, sphi = c(1,2,3), num.mixtures = 3, geneAssignment = sample(1:3, length(genome), replace=TRUE))
+parameter <- initializeParameterObject(genome = genome, sphi = c(1,2,3), num.mixtures = 3, gene.assignment = sample(1:3, length(genome), replace=TRUE))
 mcmc <- initializeMCMCObject(samples = 5000, thinning = 10, adaptive.width=50, est.mix = FALSE)
 model <- initializeModelObject(parameter = parameter, model = "ROC")
 runMCMC(mcmc = mcmc, genome = genome, model = model)
