@@ -109,6 +109,8 @@ class Model
 		virtual void updateAllHyperParameter() = 0;
 		virtual void updateHyperParameter(unsigned hp) = 0;
 
+        virtual void updateCodonSpecificHyperParameter(std::string grouping, double randomNumber);
+
 		virtual void simulateGenome(Genome &genome) =0;
 		virtual void printHyperParameters() = 0;
 

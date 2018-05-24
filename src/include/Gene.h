@@ -68,6 +68,9 @@ class Gene
 		Gene reverseComplement(); // return the reverse compliment
 		std::string toAASequence();
 
+        //Debug
+        int getTotalRFPCount();
+
 
 		//R Section:
 

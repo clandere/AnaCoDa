@@ -153,7 +153,7 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
     if (init.csp.variance < 0) {
       stop("init.csp.variance should be positive\n")
     } 
-    if (init.sepsilon < 0) {
+    if (any(init.sepsilon < 0)) {
       stop("init.sepsilon should be positive\n")
     }
   } else {

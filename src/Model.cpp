@@ -34,3 +34,8 @@ double Model::calculatePriorForCodonSpecificParam(Parameter *parameter, std::str
 	}
 	return priorValue;
 }
+
+//Temporary for debugging
+void Model::updateCodonSpecificHyperParameter(std::string grouping, double randomNumber){
+    return;
+}

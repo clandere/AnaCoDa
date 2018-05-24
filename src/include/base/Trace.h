@@ -15,7 +15,7 @@
 
 class Trace {
 	private:
-    
+
 		unsigned numCodonSpecificParamTypes;
 
 		std::vector<std::vector<double>> stdDevSynthesisRateTrace; //mixture, samples
@@ -41,6 +41,8 @@ class Trace {
 
 
 		//PA Trace:
+		std::vector<std::vector<std::vector<std::vector<float>>>> codonSpecificHyperParameterTrace; //order: paramType, category, numParam, samples
+        //paramType = {randomNumber, acceptanceRatio, currentLogLikelihood, proposedLogLikelihood, currentLogLikelihoodAdjusted, proposedLogLikelihoodAdjusted}
 
 		//--------------------------------------//
 		//------ Initialization Functions ------//
@@ -54,6 +56,9 @@ class Trace {
 		void initMixtureAssignmentTrace(unsigned samples, unsigned num_genes,std::vector<unsigned> init_mix_assign);
 		void initMixtureProbabilitiesTrace(unsigned samples, unsigned numMixtures);
 		void initCodonSpecificParameterTrace(unsigned samples, unsigned numMutationCategories, unsigned numParam, unsigned paramType);
+
+        //CSP Proposal debugging
+        void initCodonSpecificHyperParameterTrace(unsigned samples, unsigned numCategories, unsigned numParam, unsigned paramType);
 
 
 		//ROC Specific:
@@ -77,25 +82,25 @@ class Trace {
 		//Initialization Functions:
 		void initializePATrace(unsigned samples, unsigned num_genes, unsigned numAlphaCategories,
 			unsigned numLambdaPrimeCategories, unsigned numParam, unsigned numMixtures,
-			std::vector<mixtureDefinition> &_categories, unsigned maxGrouping, std::vector<double> init_phi, 
+			std::vector<mixtureDefinition> &_categories, unsigned maxGrouping, std::vector<double> init_phi,
                         std::vector<unsigned> init_mix_assign);
-        
-        
+
+
 		void initializeROCTrace(unsigned samples, unsigned num_genes, unsigned numMutationCategories,
 			unsigned numSelectionCategories, unsigned numParam, unsigned numMixtures, std::vector<mixtureDefinition> &_categories,
-			unsigned maxGrouping, unsigned numObservedPhiSets,std::vector<double> init_phi, 
+			unsigned maxGrouping, unsigned numObservedPhiSets,std::vector<double> init_phi,
                         std::vector<unsigned> init_mix_assign);
-        
-        
+
+
 		void initializeFONSETrace(unsigned samples, unsigned num_genes, unsigned numMutationCategories,
 			unsigned numSelectionCategories, unsigned numParam, unsigned numMixtures,
-			std::vector<mixtureDefinition> &_categories, unsigned maxGrouping,std::vector<double> init_phi, 
+			std::vector<mixtureDefinition> &_categories, unsigned maxGrouping,std::vector<double> init_phi,
                         std::vector<unsigned> init_mix_assign);
-        
-        
+
+
 		void initializePANSETrace(unsigned samples, unsigned num_genes, unsigned numAlphaCategories,
 			unsigned numLambdaPrimeCategories, unsigned numParam, unsigned numMixtures,
-			std::vector<mixtureDefinition> &_categories, unsigned maxGrouping,std::vector<double> init_phi, 
+			std::vector<mixtureDefinition> &_categories, unsigned maxGrouping,std::vector<double> init_phi,
                         std::vector<unsigned> init_mix_assign);
 
 
@@ -124,7 +129,7 @@ class Trace {
         //ROC Specific:
         std::vector<float> getCodonSpecificParameterTraceByMixtureElementForCodon(unsigned mixtureElement, std::string& codon,
                 unsigned paramType, bool withoutReference = true);
-	std::vector<float> getCodonSpecificParameterTraceByGeneElementForCodon(unsigned geneIndex, std::string& codon, 
+	std::vector<float> getCodonSpecificParameterTraceByGeneElementForCodon(unsigned geneIndex, std::string& codon,
 		unsigned paramType, bool withoutReference = true);
         std::vector<double> getSynthesisOffsetTrace(unsigned index);
         std::vector<double> getSynthesisOffsetAcceptanceRateTraceForIndex(unsigned index);
@@ -137,6 +142,10 @@ class Trace {
 
 
         //PA Specific:
+        std::vector<float> getCodonSpecificHyperParameterTraceByMixtureElementForCodon(unsigned mixtureElement, std::string& codon,
+                unsigned paramType);
+        std::vector<float> getCodonSpecificHyperParameterTraceByMixtureElementForCodonR(unsigned mixtureElement, std::string& codon,
+                unsigned paramType);
 
 
 		//------------------------------//
@@ -163,6 +172,7 @@ class Trace {
 
         //PA Specific:
         void updateCodonSpecificParameterTraceForCodon(unsigned sample, std::string codon, std::vector<std::vector<double>> &curParam, unsigned paramType);
+        void updateCodonSpecificHyperParameterTraceForCodon(unsigned sample, std::string codon, std:: vector<std::vector<double>> &currHyperParam, unsigned paramType);
 
 
 

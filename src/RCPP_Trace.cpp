@@ -50,6 +50,11 @@ RCPP_MODULE(Trace_mod)
     .method("setObservedSynthesisNoiseTrace", &Trace::setObservedSynthesisNoiseTrace)
     .method("setCodonSpecificParameterTrace", &Trace::setCodonSpecificParameterTrace)
 
+    
+    //PA Specific:
+    .method("getCodonSpecificHyperParameterTraceByMixtureElementForCodon",
+            &Trace::getCodonSpecificHyperParameterTraceByMixtureElementForCodonR)
+
     ;
 }
 #endif
