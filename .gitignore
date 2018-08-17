@@ -1,1 +1,65 @@
+# R stuff
+*.RData
+*.Rda
+*.Rdat
+*.rda
+*.rdat
+*.Rhistory
+*.Rcheck
 
+# LaTeX Stuff
+*.aux
+*.log
+*.toc
+
+# Compiled Object files
+*.o
+
+# Compiled Dynamic libraries
+*.so
+
+# Executables
+*.out
+
+# Mac stuff
+*.DS_Store
+
+# Junk or Output folders
+Test
+Default
+junk
+
+# IDE files
+.autotools
+.project
+.cproject
+.prefs
+.xml
+.launch
+.idea
+.externalToolBuilders
+.vcode
+.settings
+
+# .swp/swo files
+*.swp
+*.swo
+
+# Misc
+*~
+*.*~
+*.d
+*.gz
+*.txt
+*.pdf
+*.mk
+*.history
+*.dat
+symbols.rds
+cmake*
+CMake*
+autom4te.cache
+Makefile
+a.out
+src/src
+.nfs*
