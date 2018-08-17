@@ -10,6 +10,8 @@ importFrom(graphics, abline, axis, box, grid, hist,
       points, segments, text)
 importFrom(stats, lm, median, qt, quantile, sd, acf)
 importFrom(utils, write.csv)
+importFrom(grDevices, adjustcolor, rgb)
+importFrom(graphics , mtext, title)
 
 S3method(length, Rcpp_Genome)
 S3method(summary, Rcpp_Genome)
@@ -42,13 +44,14 @@ export(
 "loadParameterObject",
 "getTrace",
 "getSelectionCoefficients",
-#"geom_mean",
+"geomMean",
 
 ## Model object
 "initializeModelObject",
 
 ## Genome object
 "initializeGenomeObject",
+"getCodonCounts",
 "getCodonCountsForAA",
 "getNames",
 "addObservedSynthesisRateSet",
@@ -57,6 +60,7 @@ export(
 "getCAI",
 "getNc",
 "getNcAA",
+"calculateSCUO",
 
 ## MCMC object
 "initializeMCMCObject",

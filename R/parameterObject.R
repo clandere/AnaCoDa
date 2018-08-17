@@ -236,7 +236,7 @@ initializeROCParameterObject <- function(genome, sphi, numMixtures, geneAssignme
     observed.phi <- getObservedSynthesisRateSet(genome)
     if (ncol(observed.phi)-1 > 1)
     {
-      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geom_mean,MARGIN = 1)
+      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geomMean,MARGIN = 1)
     }
     else
     {
@@ -299,7 +299,7 @@ initializePAParameterObject <- function(genome, sphi, numMixtures, geneAssignmen
     observed.phi <- getObservedSynthesisRateSet(genome)
     if (ncol(observed.phi)-1 > 1)
     {
-      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geom_mean,MARGIN = 1)
+      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geomMean,MARGIN = 1)
     }
     else
     {
@@ -352,7 +352,7 @@ initializePANSEParameterObject <- function(genome, sphi, numMixtures, geneAssign
     observed.phi <- getObservedSynthesisRateSet(genome)
     if (ncol(observed.phi)-1 > 1)
     {
-      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geom_mean,MARGIN = 1)
+      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geomMean,MARGIN = 1)
     }
     else
     {
@@ -404,7 +404,7 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
     observed.phi <- getObservedSynthesisRateSet(genome)
     if (ncol(observed.phi)-1 > 1)
     {
-      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geom_mean,MARGIN = 1)
+      observed.phi <- apply(observed.phi[,2:ncol(observed.phi)],geomMean,MARGIN = 1)
     }
     else
     {
@@ -438,6 +438,9 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
 #' @param mixture estimates for which mixture should be returned
 #' 
 #' @param samples The number of samples used for the posterior estimates.
+#'
+#' @param optref Boolean determining if the alphabetically last codon, or the
+#' prefered codon should be used as reference (Default: FALSE).
 #' 
 #' @return returns a data.frame with the posterior estimates of the models 
 #' codon specific parameters or writes it directly to a csv file if \code{filename} is specified
@@ -472,11 +475,11 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
 #' csp_mat <- getCSPEstimates(parameter, CSP="Mutation")
 #' 
 #' # write the result directly to the filesystem as a csv file. No values are returned
-#' getCSPEstimates(parameter, , filename=file.path(tempdir(), "csp_out.csv"), CSP="Mutation")
+#' getCSPEstimates(parameter, filename=file.path(tempdir(), "csp_out.csv"), CSP="Mutation")
 #' 
 #' }
 #' 
-getCSPEstimates <- function(parameter, filename=NULL, CSP="Mutation", mixture = 1, samples = 10){
+getCSPEstimates <- function(parameter, filename=NULL, CSP="Mutation", mixture = 1, samples = 10, optref = FALSE){
   Amino_Acid <- c()
   Value <- c()
   Codon <- c()
@@ -556,6 +559,8 @@ getCSPEstimates <- function(parameter, filename=NULL, CSP="Mutation", mixture = 
   quantile_list <- matrix(unlist(quantile_list), nrow = 2)
   data <- data.frame(Amino_Acid, Codon, Value, Lower=quantile_list[1,], Upper=quantile_list[2,])
   colnames(data) <- c("AA", "Codon", "Posterior", "0.025%", "0.975%")
+  data <- add.ref.codon(data, optref)
+
   if(is.null(filename))
   {
     return(data)
@@ -564,7 +569,83 @@ getCSPEstimates <- function(parameter, filename=NULL, CSP="Mutation", mixture = 
   }
 }
 
+add.ref.codon <- function(csp, opt.ref = FALSE)
+{
+  fill.in <- data.frame(Codon=as.character(AnaCoDa::codons()))
+  csp <- merge(x = csp, y = fill.in, by = "Codon", all = T)
+  for(i in 1:64)
+    csp$AA[i] <- AnaCoDa::codonToAA(as.character(csp$Codon[i]))
+  csp[is.na(csp)] <- 0
+  csp <- csp[order(csp$AA), ]
+  
+  if(opt.ref)
+  {
+	  aas <- aminoAcids()
+	  n.aa <- length(aas)
+	  for(j in 1:n.aa)
+	  {
+	    aa <- aas[j]
+	    if(aa == "W" || aa == "M" || aa == "X") next
+	    aa.pos <- which(csp$AA == aa)
+	    csp[aa.pos, 3] <- csp[aa.pos, 3] - min(csp[aa.pos, 3])
+	    csp[aa.pos, 4] <- csp[aa.pos, 4] - min(csp[aa.pos, 4])
+	    csp[aa.pos, 5] <- csp[aa.pos, 5] - min(csp[aa.pos, 5])
+	  }
+  }
+  return(csp)
+}
 
+
+#' Find and return list of optimal codons
+#' 
+#' \code{findOptimalCodon} extracrs the optimal codon for each amino acid.
+#' 
+#' @param csp a \code{data.frame} as returned by \code{getCSPEstimates}.
+#'
+#' @return A named list with with optimal codons for each amino acid.
+#'
+#' @examples 
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#'
+#' genome <- initializeGenomeObject(file = genome_file)
+#' sphi_init <- 1
+#' numMixtures <- 1
+#' geneAssignment <- rep(1, length(genome))
+#' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
+#'                                        num.mixtures = numMixtures, 
+#'                                        gene.assignment = geneAssignment, 
+#'                                        mixture.definition = "allUnique")
+#' model <- initializeModelObject(parameter = parameter, model = "ROC")
+#' samples <- 2500
+#' thinning <- 50
+#' adaptiveWidth <- 25
+#' mcmc <- initializeMCMCObject(samples = samples, thinning = thinning, 
+#'                              adaptive.width=adaptiveWidth, est.expression=TRUE, 
+#'                              est.csp=TRUE, est.hyper=TRUE, est.mix = TRUE) 
+#' divergence.iteration <- 10
+#' \dontrun{
+#' runMCMC(mcmc = mcmc, genome = genome, model = model, 
+#'         ncores = 4, divergence.iteration = divergence.iteration)
+#' 
+#' csp_mat <- getCSPEstimates(parameter, CSP="Selection")
+#' opt_codons <- findOptimalCodon(csp_mat)
+#' }
+findOptimalCodon <- function(csp)
+{
+  aas <- aminoAcids()
+  n.aa <- length(aas)
+  result <- vector("list", length(aas))
+  names(result) <- aas
+  for(j in 1:n.aa)
+  {
+    aa <- aas[j]
+    if(aa == "W" || aa == "M" || aa == "X") next
+    aa.pos <- which(csp$AA == aa)
+    opt.codon.pos <- which(csp[aa.pos, 3] == min(csp[aa.pos, 3]))
+    result[[j]] <- csp$Codon[aa.pos[opt.codon.pos]]
+  }
+  return(result)
+}
 
 #' Calculate Selection coefficients
 #' 
@@ -1560,27 +1641,24 @@ loadFONSEParameterObject <- function(parameter, files)
 #' 
 #' @return Returns the geometric mean of a vector.
 #' 
-#' @description \code{geom_mean} will calculate the geometric mean of a list of numerical values.
+#' @description \code{geomMean} will calculate the geometric mean of a list of numerical values.
 #' 
 #' @details This function is a special version of the geometric mean specifically for AnaCoda.
 #' Most models in Anacoda assume a log normal distribution for phi values, thus all values in \code{x} are expectd to be positive.
-#' geom_mean returns the geometric mean of a vector and can handle 0, negative, or NA values. 
+#' geomMean returns the geometric mean of a vector and can handle 0, negative, or NA values. 
 #' 
 #' @examples 
 #' x <- c(1, 2, 3, 4)
-#' geom_mean(x)
+#' geomMean(x)
 #' 
 #' y<- c(1, NA, 3, 4, 0, -1)
 #' # Only take the mean of non-Na values greater than 0
-#' geom_mean(y)
+#' geomMean(y)
 #' 
 #' # Replace values <= 0 or NAs with a default value 0.001 and then take the mean
-#' geom_mean(y, rm.invalid = FALSE, default = 0.001)
+#' geomMean(y, rm.invalid = FALSE, default = 0.001)
 #' 
-
-
-
-geom_mean <- function(x, rm.invalid = TRUE, default = 1e-5)
+geomMean <- function(x, rm.invalid = TRUE, default = 1e-5)
 {
   if(!rm.invalid)
   {

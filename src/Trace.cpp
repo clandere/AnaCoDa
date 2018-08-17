@@ -19,7 +19,6 @@ Trace::Trace()
 	categories = 0;
 	numCodonSpecificParamTypes = 2;
 	codonSpecificParameterTrace.resize(numCodonSpecificParamTypes);
-	codonSpecificHyperParameterTrace.resize(6);
 	// TODO: fill this
 }
 
@@ -35,7 +34,6 @@ Trace::Trace(unsigned _numCodonSpecificParamTypes)
 	categories = 0;
 	numCodonSpecificParamTypes = _numCodonSpecificParamTypes;
 	codonSpecificParameterTrace.resize(numCodonSpecificParamTypes);
-	codonSpecificHyperParameterTrace.resize(6);
 }
 
 
@@ -155,41 +153,6 @@ void Trace::initCodonSpecificParameterTrace(unsigned samples, unsigned numCatego
 }
 
 
-/* Here we initilize the codon specific hyperparameters Requires number of samples, number of categories, number of parameters (codons),
-which hyperparameters (0 = randomNumber, 1 = acceptance ratio, 2 = loglikelihood current, 3 = loglikelihood proposed,
-4 = loglikelihood current adjusted, 5 = loglikelihood proposed adjusted)*/
-void Trace::initCodonSpecificHyperParameterTrace(unsigned samples, unsigned numCategories, unsigned numParam, unsigned paramType)
-{
-	std::vector <std::vector <std::vector <float>>> tmp;
-	tmp.resize(numCategories);
-	for (unsigned category = 0; category < numCategories; category++)
-	{
-		tmp[category].resize(numParam);
-		for (unsigned i = 0; i < numParam; i++)
-		{
-			std::vector <float> temp(samples, 0.0);
-			tmp[category][i] = temp;
-		}
-	}
-
-
-	//TODO: R output for error message here
-	codonSpecificHyperParameterTrace[paramType] = tmp;
-	/*
-	switch (paramType) {
-	case 0:
-		codonSpecificParameterTraceOne = tmp;
-		break;
-	case 1:
-		codonSpecificParameterTraceTwo = tmp;
-		break;
-	default:
-		my_printError("ERROR: Invalid paramType given, codon specific parameter trace not initialized.\n");
-		break;
-	}
-	*/
-}
-
 
 
 
@@ -247,13 +210,6 @@ void Trace::initializePATrace(unsigned samples, unsigned num_genes, unsigned num
 	initCodonSpecificParameterTrace(samples, numAlphaCategories,  numParam, 0u); // alp
 	initCodonSpecificParameterTrace(samples, numLambdaPrimeCategories, numParam, 1u); // lmPri
 
-    //CSP proposal debugging
-    initCodonSpecificHyperParameterTrace(samples, numMixtures, numParam, 0u); // Random Number
-    initCodonSpecificHyperParameterTrace(samples, numMixtures, numParam, 1u); // Acceptance Ratio
-    initCodonSpecificHyperParameterTrace(samples, numMixtures, numParam, 2u); // loglikelihood current
-    initCodonSpecificHyperParameterTrace(samples, numMixtures, numParam, 3u); // loglikelihood proposed
-    initCodonSpecificHyperParameterTrace(samples, numMixtures, numParam, 4u); // loglikelihood current adjusted
-    initCodonSpecificHyperParameterTrace(samples, numMixtures, numParam, 5u); // loglikelihood proposed adjusted
 }
 
 
@@ -636,20 +592,6 @@ void Trace::updateObservedSynthesisNoiseTrace(unsigned index, unsigned sample, d
 //---------- PA Specific -------------//
 //-------------------------------------//
 
-//To be used for debugging CSP proposal issues
-void Trace::updateCodonSpecificHyperParameterTraceForCodon(unsigned sample, std::string codon,
-    std:: vector<std::vector<double>> &currHyperParam, unsigned paramType)
-{
-    unsigned i = SequenceSummary::codonToIndex(codon);
-    for (unsigned category = 0; category < codonSpecificHyperParameterTrace[paramType].size(); category++)
-    {
-        if(std::isnan(currHyperParam[category][i])){
-            my_printError("\n Trace::updateCodonSpecificHyperParameterTraceForCodon: Current hyper-parameter set contains NaN. \n");
-        }
-		codonSpecificHyperParameterTrace[paramType][category][i][sample] = currHyperParam[category][i];
-	}
-}
-
 void Trace::updateCodonSpecificParameterTraceForCodon(unsigned sample, std::string codon,
 	std::vector<std::vector<double>> &curParam, unsigned paramType)
 {
@@ -874,32 +816,6 @@ bool Trace::checkIndex(unsigned index, unsigned lowerbound, unsigned upperbound)
 	}
 
 	return check;
-}
-
-//----------------------------------//
-//---------- PA Debug Specific ----------//
-//----------------------------------//
-
-std::vector<float> Trace::getCodonSpecificHyperParameterTraceByMixtureElementForCodonR(unsigned mixtureElement, 
-        std::string& codon, unsigned paramType)
-{
-
-	std::vector<float> RV;
-	bool checkMixtureElement = checkIndex(mixtureElement, 1, getNumberOfMixtures());
-	if (checkMixtureElement)
-	{
-		RV = getCodonSpecificHyperParameterTraceByMixtureElementForCodon(mixtureElement - 1, codon, paramType);
-	}
-	return RV;
-}
-
-std::vector<float> Trace::getCodonSpecificHyperParameterTraceByMixtureElementForCodon(unsigned mixtureElement,
-	std::string& codon, unsigned paramType)
-{
-	std::vector <float> rv;
-	unsigned codonIndex = SequenceSummary::codonToIndex(codon, true);
-	rv = codonSpecificParameterTrace[paramType][mixtureElement][codonIndex];
-	return rv;
 }
 
 #endif

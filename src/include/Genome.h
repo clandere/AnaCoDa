@@ -11,6 +11,7 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <functional>
 
 #ifndef STANDALONE
 #include <Rcpp.h>
@@ -26,9 +27,9 @@ class Genome
 		std::vector <unsigned> numGenesWithPhi; //Number of phi sets is vector size, value is number of genes
 												//with a phi value for that set. Values should currently be equal.
         std::vector<std::string> RFPCountColumnNames;
-        unsigned prev_genome_size;  
+        unsigned prev_genome_size;
 
-  
+
   	public:
 
 	public:
@@ -51,7 +52,7 @@ class Genome
 
 
 		//Gene Functions:
-		void addGene(const Gene& gene, bool simulated = false);
+		void addGene(Gene& gene, bool simulated = false);
 		std::vector <Gene> getGenes(bool simulated = false);
 		unsigned getNumGenesWithPhiForIndex(unsigned index);
 		Gene& getGene(unsigned index, bool simulated = false);

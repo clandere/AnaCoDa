@@ -127,7 +127,7 @@ void ROCModel::calculateLogLikelihoodRatioPerGene(Gene& gene, unsigned geneIndex
 	{
 		for (unsigned i = 0; i < parameter->getNumObservedPhiSets(); i++)
 		{
-			double obsPhi = std::log(gene.getObservedSynthesisRate(i));
+			double obsPhi = gene.getObservedSynthesisRate(i);
 			if (obsPhi > -1.0)
 			{
 				double logObsPhi = std::log(obsPhi);
@@ -150,7 +150,7 @@ void ROCModel::calculateLogLikelihoodRatioPerGene(Gene& gene, unsigned geneIndex
 
 }
 
- 
+
 void ROCModel::calculateLogLikelihoodRatioPerGroupingPerCategory(std::string grouping, Genome& genome, std::vector<double> &logAcceptanceRatioForAllMixtures)
 {
 	int numGenes = genome.getGenomeSize();
@@ -218,7 +218,7 @@ void ROCModel::calculateLogLikelihoodRatioForHyperParameters(Genome &genome, uns
 	std::vector<double> proposedStdDevSynthesisRate(selectionCategory, 0.0);
 	std::vector<double> proposedMphi(selectionCategory, 0.0);
 
-	//Calculating reverse jump probabilities due to asymmetry of logNormal  
+	//Calculating reverse jump probabilities due to asymmetry of logNormal
 	for (unsigned i = 0u; i < selectionCategory; i++)
 	{
 		currentStdDevSynthesisRate[i] = getStdDevSynthesisRate(i, false);
@@ -729,7 +729,7 @@ void ROCModel::simulateGenome(Genome &genome)
 void ROCModel::printHyperParameters()
 {
 	for (unsigned i = 0u; i < getNumSynthesisRateCategories(); i++)
-		my_print("\t Current stdDevSynthesisRate estimate for selection category %: %\n", i, getStdDevSynthesisRate(i, false));
+		my_print("\t current stdDevSynthesisRate estimate for selection category %: %\n", i, getStdDevSynthesisRate(i, false));
 
 	my_print("\t current stdDevSynthesisRate proposal width: %\n", getCurrentStdDevSynthesisRateProposalWidth());
 
@@ -964,18 +964,3 @@ std::vector<double> ROCModel::CalculateProbabilitiesForCodons(std::vector<double
 }
 
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

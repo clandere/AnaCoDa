@@ -273,10 +273,6 @@ class Parameter {
 		std::vector<std::vector<std::vector<double>>> proposedCodonSpecificParameter;
 		std::vector<std::vector<std::vector<double>>> currentCodonSpecificParameter;
 
-        //CSP PA Proposal Debug
-        std::vector<std::vector<std::vector<double>>> currentCodonSpecificHyperParameter;
-		std::vector<std::vector<double>> currentLambdaParameter;
-
 		std::vector<unsigned> mixtureAssignment;
 		std::vector<std::string> groupList;
 		unsigned maxGrouping;

@@ -20,6 +20,7 @@ class PAParameter: public Parameter {
 
 		std::vector<std::vector<double>> lambdaValues; //Currently not used.
 		double bias_csp;
+        bool div_flag;
 
 	public:
 		static const unsigned dalpha;
@@ -57,11 +58,6 @@ class PAParameter: public Parameter {
 		double getCurrentCodonSpecificProposalWidth(unsigned index);
 		void proposeCodonSpecificParameter();
 		void updateCodonSpecificParameter(std::string grouping);
-
-        //CSP Proposal Debugging`
-        void updateCodonSpecificHyperParameter(std::string grouping, double randomNumber, double acceptanceRatio,
-            double currLogLikelihood, double propLogLikelihood, double currLogLikelihoodAdjusted, double propLogLikelihoodAdjusted);
-        double calculateExpectedZ(Genome &genome);
 
 
 		//Adaptive Width Functions:

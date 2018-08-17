@@ -285,3 +285,81 @@ acfCSP <- function(parameter, csp = "Mutation", numMixtures = 1, samples = NULL,
   }
   return(acf.list)
 }
+
+
+# NOT EXPOSED
+# plots to data.frames / matrices with CSP estimates.
+plotCSPdf <- function(df1, df2, xlab = "", ylab = "", main = "")
+{
+  fill.in <- data.frame(Codon=as.character(codons()))
+  df1 <- merge(x = df1, y = fill.in, by = "Codon", all = T)
+  df2 <- merge(x = df2, y = fill.in, by = "Codon", all = T)
+  
+  for(i in 1:64){
+    df1$AA[i] <- codonToAA(df1$Codon[i])
+    df2$AA[i] <- codonToAA(df2$Codon[i])
+  }
+  df1[is.na(df1)] <- 0
+  df1 <- df1[order(df1$AA), ]
+  df2[is.na(df2)] <- 0
+  df2 <- df2[order(df2$AA), ]
+  
+    
+  aas <- aminoAcids()
+  n.aa <- length(aas)
+  kt <- rep(0, n.aa)
+  dn <- rep(0, n.aa)
+  for(j in 1:n.aa)
+  {
+    aa <- aas[j]
+    if(aa == "W" || aa == "M" || aa == "X") next
+    aa.pos <- which(df1$AA == aa)
+    df1[aa.pos,4] <- df1[aa.pos,4] - mean(df1[aa.pos,3])
+    df2[aa.pos,4] <- df2[aa.pos,4] - mean(df2[aa.pos,3])
+    
+    df1[aa.pos,5] <- df1[aa.pos,5] - mean(df1[aa.pos,3])
+    df2[aa.pos,5] <- df2[aa.pos,5] - mean(df2[aa.pos,3])
+
+    df1[aa.pos,3] <- df1[aa.pos,3] - mean(df1[aa.pos,3])
+    df2[aa.pos,3] <- df2[aa.pos,3] - mean(df2[aa.pos,3])
+  }
+  
+  xlim <- range(df1[, 4:5])
+  ylim <- range(df2[, 4:5])
+  
+  plot(NULL, NULL, axes=F, xlab = "", ylab = "", xlim = xlim, ylim = ylim)
+  points(df1[, 3], df2[,3], pch = 19, col = rgb(0,0,0,0.7))
+  
+  segments(x0 = df1[,3], y0 = df2[,4], x1 = df1[,3], y1 = df2[,5], lwd=2, col=adjustcolor("black", 0.5))
+  segments(x0 = df1[,4], y0 = df2[,3], x1 = df1[,5], y1 = df2[,3], lwd=2, col=adjustcolor("black", 0.5))
+  
+  type2.reg <- lmodel2::lmodel2(df2[, 3] ~ df1[,3], nperm = 10, range.y = "interval", range.x = "interval")
+  intercept <- type2.reg$regression.results[4, 2]
+  slope <- type2.reg$regression.results[4, 3]
+  r <- type2.reg$r
+  
+  if(slope > 0){
+    text(x = xlim[1] + abs(xlim[1])*0.1, y = ylim[2] - abs(ylim[2])*0.2, adj = 0,
+         labels = bquote("y = " ~.(round(intercept, 2)) ~ " + " ~.(round(slope, 2)) ~ "x"), cex = 0.75)
+    text(x = xlim[1] + abs(xlim[1])*0.1, y = (ylim[2] - abs(ylim[2])*0.2) - 0.4, adj = 0,
+         labels = bquote(rho ~ " = " ~.(round(r, 2))), cex = 0.75)
+  }else{
+    text(x = xlim[1] + abs(xlim[1])*0.2, y = ylim[1] + abs(ylim[1])*0.2 + 0.4, adj = 0,
+         labels = bquote("y = " ~.(round(intercept, 2)) ~ " + " ~.(round(slope, 2)) ~ "x"), cex = 0.75)
+    text(x = xlim[1] + abs(xlim[1])*0.2, y = (ylim[1] + abs(ylim[1])*0.2), adj = 0,
+         labels = bquote(rho ~ " = " ~.(round(r, 2))), cex = 0.75)  
+  }
+  
+  abline(a = intercept, b = slope, lty = 1, lwd = 2, col = adjustcolor("red", 0.7))
+  abline(a = 0, b = 1, lty = 2, lwd = 1)
+  abline(h = 0, lty = 3, lwd = 1)
+  abline(v = 0, lty = 3, lwd = 1)
+  
+  title(main = main)
+  
+  mtext(text = xlab, side = 1, line = 2.5, font = 2, cex=1.5)
+  mtext(text = ylab, side = 2, line = 2.5, font = 2, cex=1.5)
+  
+  axis(side = 1, tick = T, font.axis = 2, lwd=2, las=1)
+  axis(side = 2, tick = T, font.axis = 2, lwd=2, las=1)
+}

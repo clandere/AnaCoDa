@@ -12,6 +12,8 @@
 #' @param fasta A boolean value which decides whether to initialize with a
 #'  fasta file or an RFPData file. (TRUE for fasta, FALSE for RFPData)
 #' 
+#' @param simulated boolean to determine if the data should be treated as a simulated data set (Default = FALSE).
+#' 
 #' @param match.expression.by.id If TRUE (default), observed expression values will be assigned by matching sequence identifier.
 #' If FALSE, observed expression values will be assigned by order.
 #' 
@@ -36,7 +38,8 @@
 #' genome <- initializeGenomeObject(file = genome_file)
 #' genome <- initializeGenomeObject(file = genes_file, genome = genome, append = TRUE)   
 #' 
-initializeGenomeObject <- function(file, genome=NULL, observed.expression.file=NULL, fasta=TRUE, simulated = FALSE, match.expression.by.id=TRUE, append=FALSE) {
+initializeGenomeObject <- function(file, genome=NULL, observed.expression.file=NULL, fasta=TRUE, simulated = FALSE, 
+                                   match.expression.by.id=TRUE, append=FALSE) {
   if (is.null(genome)){ 
     genome <- new(Genome)
   }
@@ -90,6 +93,28 @@ getCodonCounts <- function(genome){
   return(as.data.frame(ORF))
 }
 
+#' Get Codon Counts For a specific Amino Acid
+#' 
+#' @param aa One letter code of the amino acid for which the codon counts should be returned
+#' 
+#' @param genome A genome object from which the counts of each
+#' codon can be obtained.
+#'  
+#' @return Returns a data.frame storing the codon counts for the specified amino acid. 
+#' 
+#' @description provides the codon counts for a fiven amino acid across all genes
+#' 
+#' @details The returned matrix containes a row for each gene and a coloumn 
+#' for each synonymous codon of \code{aa}.
+#' 
+#' @examples 
+#' 
+#' genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
+#'  
+#' ## reading genome
+#' genome <- initializeGenomeObject(file = genome_file)
+#' counts <- getCodonCountsForAA("A", genome)
+#' 
 getCodonCountsForAA <- function(aa, genome){
   # get codon count for aa
   codons <- AAToCodon(aa, F)
@@ -104,7 +129,7 @@ getCodonCountsForAA <- function(aa, genome){
 
 #' calculates the synonymous codon usage order (SCUO) 
 #' 
-#' \code{calculeSCUO} calulates the SCUO value for each gene in genome
+#' \code{calculateSCUO} calulates the SCUO value for each gene in genome
 #' 
 #' @param genome A genome object initialized with \code{\link{initializeGenomeObject}}.
 #' 
@@ -116,9 +141,9 @@ getCodonCountsForAA <- function(aa, genome){
 #'  
 #' ## reading genome
 #' genome <- initializeGenomeObject(file = genome_file)
-#' scuo <- calculeSCUO(genome)
+#' scuo <- calculateSCUO(genome)
 #' 
-calculeSCUO <- function(genome)
+calculateSCUO <- function(genome)
 {
   aas <- aminoAcids()
   genes <- genome$getGenes(F)

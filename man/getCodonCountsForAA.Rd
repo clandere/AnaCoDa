@@ -2,18 +2,18 @@
 % Please edit documentation in R/genomeObject.R
 \name{getCodonCountsForAA}
 \alias{getCodonCountsForAA}
-\title{Get Codon Counts For Each Amino Acid}
+\title{Get Codon Counts For a specific Amino Acid}
 \usage{
 getCodonCountsForAA(aa, genome)
 }
 \arguments{
-\item{aa}{A one character representation of an amino acid.}
+\item{aa}{One letter code of the amino acid for which the codon counts should be returned}
 
 \item{genome}{A genome object from which the counts of each
 codon can be obtained.}
 }
 \value{
-Returns a matrix storing the codonCounts for the given amino acid.
+Returns a data.frame storing the codon counts for the specified amino acid.
 }
 \description{
 provides the codon counts for a fiven amino acid across all genes
@@ -28,8 +28,6 @@ genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
  
 ## reading genome
 genome <- initializeGenomeObject(file = genome_file)
-countsForA <- getCodonCountsForAA("A", genome)
-
-counts <- lapply(X = c("A", "C"), FUN = getCodonCountsForAA, genome = genome)
+counts <- getCodonCountsForAA("A", genome)
 
 }
