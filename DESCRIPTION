@@ -2,12 +2,24 @@ Package: AnaCoDa
 Type: Package
 Title: Analysis of Codon Data under Stationarity using a Bayesian
         Framework
+<<<<<<< HEAD
 Version: 0.1.2.1
 Date: 2018-08-16
 Authors@R: c(person("Cedric", "Landerer", role = c("aut", "cre"), email
         = "cedric.landerer@gmail.com"), person("Gabriel", "Hanas", role
         = "ctb"), person("Jeremy", "Rogers", role = "ctb"),
         person("Alex", "Cope", role="ctb"), person("Denizhan", "Pak", role="ctb"))
+=======
+Version: 0.1.2.2
+Date: 2018-08-17
+Authors@R: c(person("Cedric", "Landerer", role = c("aut", "cre"), email
+        = "cedric.landerer@gmail.com"), person("Gabriel", "Hanas", role
+        = "ctb"), person("Jeremy", "Rogers", role = "ctb"),
+        person("Alex", "Cope", role="ctb"), person("Denizhan", "Pak",
+        role="ctb"))
+Author: Cedric Landerer [aut, cre], Gabriel Hanas [ctb], Jeremy Rogers
+        [ctb], Alex Cope [ctb]
+>>>>>>> 25d6e3c7ae35721bf0725563f215bee86894c353
 Maintainer: Cedric Landerer <cedric.landerer@gmail.com>
 URL: https://github.com/clandere/AnaCoDa
 VignetteBuilder: knitr
