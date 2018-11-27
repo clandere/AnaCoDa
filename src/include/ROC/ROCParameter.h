@@ -31,7 +31,6 @@ class ROCParameter : public Parameter
 		double bias_csp;
 		
 		double mutation_prior_sd;
-
 		std::vector<double> propose(std::vector<double> currentParam, double (*proposal)(double a, double b), double A, std::vector<double> B);
 
 	public:
@@ -96,7 +95,6 @@ class ROCParameter : public Parameter
 		double getCurrentCodonSpecificProposalWidth(unsigned aa);
 		void proposeCodonSpecificParameter();
 		void updateCodonSpecificParameter(std::string grouping);
-
 
 
 		//Prior Functions:

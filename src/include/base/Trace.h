@@ -41,7 +41,6 @@ class Trace {
 
 
 		//PA Trace:
-		std::vector<std::vector<std::vector<std::vector<float>>>> codonSpecificHyperParameterTrace; //order: paramType, category, numParam, samples
         //paramType = {randomNumber, acceptanceRatio, currentLogLikelihood, proposedLogLikelihood, currentLogLikelihoodAdjusted, proposedLogLikelihoodAdjusted}
 
 		//--------------------------------------//
@@ -56,9 +55,6 @@ class Trace {
 		void initMixtureAssignmentTrace(unsigned samples, unsigned num_genes,std::vector<unsigned> init_mix_assign);
 		void initMixtureProbabilitiesTrace(unsigned samples, unsigned numMixtures);
 		void initCodonSpecificParameterTrace(unsigned samples, unsigned numMutationCategories, unsigned numParam, unsigned paramType);
-
-        //CSP Proposal debugging
-        void initCodonSpecificHyperParameterTrace(unsigned samples, unsigned numCategories, unsigned numParam, unsigned paramType);
 
 
 		//ROC Specific:
@@ -141,12 +137,6 @@ class Trace {
         //FONSE Specific:
 
 
-        //PA Specific:
-        std::vector<float> getCodonSpecificHyperParameterTraceByMixtureElementForCodon(unsigned mixtureElement, std::string& codon,
-                unsigned paramType);
-        std::vector<float> getCodonSpecificHyperParameterTraceByMixtureElementForCodonR(unsigned mixtureElement, std::string& codon,
-                unsigned paramType);
-
 
 		//------------------------------//
 		//------ Update Functions ------//
@@ -172,7 +162,6 @@ class Trace {
 
         //PA Specific:
         void updateCodonSpecificParameterTraceForCodon(unsigned sample, std::string codon, std::vector<std::vector<double>> &curParam, unsigned paramType);
-        void updateCodonSpecificHyperParameterTraceForCodon(unsigned sample, std::string codon, std:: vector<std::vector<double>> &currHyperParam, unsigned paramType);
 
 
 

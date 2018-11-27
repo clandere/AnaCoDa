@@ -141,12 +141,12 @@ void CovarianceMatrix::setDiag(double val)
 // http://rosettacode.org/wiki/Cholesky_decomposition#C
 void CovarianceMatrix::choleskyDecomposition()
 {
-    for (int i = 0; i < numVariates; i++)
+    for (unsigned i = 0; i < numVariates; i++)
     {
-        for (int j = 0; j < (i + 1); j++)
+        for (unsigned j = 0; j < (i + 1); j++)
         {
             double LsubstractSum = 0.0;
-            for (int k = 0; k < j; k++)
+            for (unsigned k = 0; k < j; k++)
             {
                 LsubstractSum += choleskyMatrix[i * numVariates + k] * choleskyMatrix[j * numVariates + k];
             }

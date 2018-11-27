@@ -39,9 +39,6 @@ class MCMCAlgorithm
 
 		std::vector<double> posteriorTrace;
 		std::vector<double> likelihoodTrace;
-        std::vector<double> probabilityTrace;
-        std::vector<double> randomTrace;
-        std::vector<double> ratioTrace;
 		std::vector<double> tmp;
 
 

@@ -41,9 +41,6 @@ MCMCAlgorithm::MCMCAlgorithm() : samples(1000), thinning(1), adaptiveWidth(100 *
 	posteriorTrace.resize(samples + 1); // +1 for storing initial evaluation
 	likelihoodTrace.resize(samples + 1);
 
-    ratioTrace.resize(samples + 1);
-
-
     writeRestartFile = false;
 	multipleFiles = false;
 	fileWriteInterval = 1u;
@@ -209,6 +206,7 @@ double MCMCAlgorithm::acceptRejectSynthesisRateLevelForAllGenes(Genome& genome, 
                 my_print("exp(curr logLik - maxVal): %\n", std::exp(unscaledLogProb_curr_singleMixture[k]));
                 my_print("Max Val. %\n", maxValue);
                 my_print("\n\n\n");
+		break;
             }
             unscaledLogProb_curr_singleMixture[k] += maxValue;
 		}
@@ -328,7 +326,6 @@ double MCMCAlgorithm::acceptRejectSynthesisRateLevelForAllGenes(Genome& genome, 
 void MCMCAlgorithm::acceptRejectCodonSpecificParameter(Genome& genome, Model& model, int iteration)
 {
 	//double acceptanceRatioForAllMixtures = 0.0;
-	double posterior;
 	std::vector<double> acceptanceRatioForAllMixtures(5,0.0);
 	unsigned size = model.getGroupListSize();
 
@@ -339,12 +336,16 @@ void MCMCAlgorithm::acceptRejectCodonSpecificParameter(Genome& genome, Model& mo
 		// calculate likelihood ratio for every Category for current AA
 		model.calculateLogLikelihoodRatioPerGroupingPerCategory(grouping, genome, acceptanceRatioForAllMixtures);
 		//logPosterior += model.calculateAllPriors();
-        double random = -Parameter::randExp(1);
+        double threshold = -Parameter::randExp(1);
+        /*if ((iteration % thinning) == 0)
+        {
+            my_print("The returned logLikelihood Ratio is: %\n", acceptanceRatioForAllMixtures[0]);
+            my_print("The Returned Threshhold is: %\n", threshold);
+        }*/
 
-		if ( random < acceptanceRatioForAllMixtures[0])
+		if (threshold < acceptanceRatioForAllMixtures[0] && std::isfinite(acceptanceRatioForAllMixtures[0]))
 		{
 			// moves proposed codon specific parameters to current codon specific parameters
-			posterior = acceptanceRatioForAllMixtures[4]; //unassigned will be 0
 			model.updateCodonSpecificParameter(grouping);
 			if ((iteration % thinning) == 0)
 			{
@@ -354,7 +355,6 @@ void MCMCAlgorithm::acceptRejectCodonSpecificParameter(Genome& genome, Model& mo
 		}
 		else
 		{
-			posterior = acceptanceRatioForAllMixtures[3];
 			if ((iteration % thinning) == 0)
 			{
 				likelihoodTrace[(iteration / thinning)] = acceptanceRatioForAllMixtures[1];
@@ -364,12 +364,9 @@ void MCMCAlgorithm::acceptRejectCodonSpecificParameter(Genome& genome, Model& mo
 		}
 		if ((iteration % thinning) == 0)
 		{
-            model.updateCodonSpecificHyperParameter(grouping, random);
 			model.updateCodonSpecificParameterTrace(iteration/thinning, grouping);
 		}
 	}
-	//return posterior
-
 }
 
 
@@ -445,7 +442,7 @@ void MCMCAlgorithm::run(Genome& genome, Model& model, unsigned numCores, unsigne
 	// set the last iteration to the max iterations,
 	// this way if the MCMC doesn't exit based on Geweke score, it will use the max iteration for posterior means
 	model.setLastIteration(samples);
-	for (unsigned iteration = 1u; iteration <= maximumIterations; iteration++)
+	for (int iteration = 1u; iteration <= maximumIterations; iteration++)
 	{
 		if (writeRestartFile)
 		{
@@ -606,7 +603,7 @@ void MCMCAlgorithm::varyInitialConditions(Genome& genome, Model& model, unsigned
 		// prior on phi values -> take prior into account, but only the prior no likelihood
 		if (estimateSynthesisRate)
 		{
-			int numGenes = genome.getGenomeSize();
+			unsigned numGenes = genome.getGenomeSize();
 			unsigned numSynthesisRateCategories = model.getNumSynthesisRateCategories();
 			for (unsigned i = 0u; i < numGenes; i++)
 			{

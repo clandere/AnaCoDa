@@ -36,7 +36,7 @@ double PANSEModel::calculateLogLikelihoodPerCodonPerGene(double currAlpha, doubl
     return logLikelihood;
     double term1, term2, term3;*/
     double prevdelta = 1;
-    
+
     double term1 = std::lgamma(currAlpha + currRFPObserved) - lgamma(currAlpha);
     double term2 = std::log(phiValue) + std::log(prevdelta) - std::log(currLambdaPrime + (phiValue * prevdelta));
     double term3 = std::log(currLambdaPrime) - std::log(currLambdaPrime + (phiValue * prevdelta));
@@ -89,7 +89,7 @@ void PANSEModel::calculateLogLikelihoodRatioPerGene(Gene& gene, unsigned geneInd
 
         double currAlpha = getParameterForCategory(alphaCategory, PANSEParameter::alp, codon, false);
         double currLambdaPrime = getParameterForCategory(lambdaPrimeCategory, PANSEParameter::lmPri, codon, false);
-        unsigned currRFPObserved = gene.geneData.getRFPValue(index, RFPCountColumn);
+        unsigned currRFPObserved = gene.geneData.getCodonSpecificSumRFPCount(index, RFPCountColumn);
 
         unsigned currNumCodonsInMRNA = gene.geneData.getCodonCountForCodon(index);
         if (currNumCodonsInMRNA == 0) continue;
@@ -104,11 +104,11 @@ void PANSEModel::calculateLogLikelihoodRatioPerGene(Gene& gene, unsigned geneInd
     for (unsigned index = 0; index < positions.size(); index++)
     {
         std::string codon = gene.geneData.indexToCodon(positions[index]);
-        
+
         double currAlpha = getParameterForCategory(alphaCategory, PANSEParameter::alp, codon, false);
         double currLambdaPrime = getParameterForCategory(lambdaPrimeCategory, PANSEParameter::lmPri, codon, false);
         //Should be rfp value at position not all of codon
-        unsigned currRFPObserved = gene.geneData.getRFPValue(index);
+        unsigned currRFPObserved = gene.geneData.getCodonSpecificSumRFPCount(index);
 
         unsigned currNumCodonsInMRNA = gene.geneData.getCodonCountForCodon(index);
         //This line will never execute
@@ -165,7 +165,7 @@ void PANSEModel::calculateLogLikelihoodRatioPerGroupingPerCategory(std::string g
         unsigned synthesisRateCategory = parameter->getSynthesisRateCategory(mixtureElement);
         // get non codon specific values, calculate likelihood conditional on these
         double phiValue = parameter->getSynthesisRate(i, synthesisRateCategory, false);
-        unsigned currRFPObserved = gene->geneData.getRFPValue(index, RFPCountColumn);
+        unsigned currRFPObserved = gene->geneData.getCodonSpecificSumRFPCount(index, RFPCountColumn);
         unsigned currNumCodonsInMRNA = gene->geneData.getCodonCountForCodon(index);
         if (currNumCodonsInMRNA == 0) continue;
 
@@ -598,25 +598,26 @@ void PANSEModel::simulateGenome(Genome &genome)
             NumericVector xx(1);
             xx = rgamma(1, alphaPrime, 1.0/lambdaPrime);
             xx = rpois(1, xx[0] * phi);
-            tmpGene.geneData.setRFPValue(codonIndex, xx[0], RFPCountColumn);
+            tmpGene.geneData.setCodonSpecificSumRFPCount(codonIndex, xx[0], RFPCountColumn);
 #else
             std::gamma_distribution<double> GDistribution(alphaPrime, 1.0/lambdaPrime);
             double tmp = GDistribution(Parameter::generator);
             std::poisson_distribution<unsigned> PDistribution(phi * tmp);
             unsigned simulatedValue = PDistribution(Parameter::generator);
-            tmpGene.geneData.setRFPValue(codonIndex, simulatedValue, RFPCountColumn);
+            tmpGene.geneData.setCodonSpecificSumRFPCount(codonIndex, simulatedValue, RFPCountColumn);
 #endif
         }
         genome.addGene(tmpGene, true);
     }*/
     for (unsigned geneIndex = 0u; geneIndex < genome.getGenomeSize(); geneIndex++)
     {
-        unsigned mixtureElement = getMixtureAssignment(geneIndex);
+        /*unsigned mixtureElement = getMixtureAssignment(geneIndex);
         Gene gene = genome.getGene(geneIndex);
         double phi = parameter->getSynthesisRate(geneIndex, mixtureElement, false);
         Gene tmpGene = gene;
+        Need to reimplement*/
     }
-    
+
 }
 
 
@@ -765,7 +766,7 @@ double PANSEModel::prob_Y_g(double curralpha, int sample_size, double lambda_pri
     term1 = std::tgamma(curralpha + sample_size) / std::tgamma(curralpha);
     term2 = psi * prevdelta / (lambda_prime + (psi * prevdelta));
     term3 = lambda_prime / (lambda_prime + (psi * prevdelta));
-    
+
     term2 = pow(term2, sample_size);
     term3 = pow(term3, curralpha);
 
@@ -826,7 +827,7 @@ std::vector <double> readLambdaValues(std::string filename){
     std::ifstream currentFile;
     std::string tmpString;
     std::vector <double> rv;
-    
+
     rv.resize(64);
 
     currentFile.open(filename);

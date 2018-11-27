@@ -4,22 +4,24 @@
 \alias{getCSPEstimates}
 \title{Return Codon Specific Paramters (or write to csv) estimates as data.frame}
 \usage{
-getCSPEstimates(parameter, filename = NULL, CSP = "Mutation", mixture = 1,
-  samples = 10)
+getCSPEstimates(parameter, filename = NULL, mixture = 1, samples = 10,
+  relative.to.optimal.codon = T, report.original.ref = T)
 }
 \arguments{
 \item{parameter}{parameter an object created by \code{initializeParameterObject}.}
 
-\item{filename}{Posterior estimates will be written to file instead of returned if specified (format: csv).}
-
-\item{CSP}{which type of codon specific parameter should be returned (mutation (default) or selection)}
+\item{filename}{Posterior estimates will be written to file (format: csv). Filename will be in the format <parameter_name>_<filename>.csv.}
 
 \item{mixture}{estimates for which mixture should be returned}
 
 \item{samples}{The number of samples used for the posterior estimates.}
+
+\item{relative.to.optimal.codon}{Boolean determining if parameters should be relative to the preferred codon or the alphabetically last codon (Default=TRUE). Only applies to ROC and FONSE models}
+
+\item{report.original.ref}{Include the original reference codon (Default = TRUE). Note this is only included for the purposes of simulations, which expect the input parameter file to be in a specific format. Later version of AnaCoDa will remove this.}
 }
 \value{
-returns a data.frame with the posterior estimates of the models 
+returns a list data.frame with the posterior estimates of the models 
 codon specific parameters or writes it directly to a csv file if \code{filename} is specified
 }
 \description{
@@ -51,11 +53,10 @@ runMCMC(mcmc = mcmc, genome = genome, model = model,
         ncores = 4, divergence.iteration = divergence.iteration)
 
 ## return estimates for codon specific parameters
-csp_mat <- getCSPEstimates(parameter, CSP="Mutation")
+csp_mat <- getCSPEstimates(parameter)
 
 # write the result directly to the filesystem as a csv file. No values are returned
-getCSPEstimates(parameter, , filename=file.path(tempdir(), "csp_out.csv"), CSP="Mutation")
+getCSPEstimates(parameter, filename=file.path(tempdir(), "test.csv"))
 
 }
-
 }

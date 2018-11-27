@@ -4,10 +4,12 @@
 \alias{getCAIweights}
 \title{Calculate the CAI codon weigths for a reference genome}
 \usage{
-getCAIweights(referenceGenome)
+getCAIweights(referenceGenome, default.weight = 0.5)
 }
 \arguments{
 \item{referenceGenome}{A genome object initialized with \code{\link{initializeGenomeObject}}.}
+
+\item{default.weight}{Set default weight for any codon not observed in the reference genome}
 }
 \value{
 Returns a named vector with the CAI weights for each codon

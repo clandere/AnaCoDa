@@ -490,18 +490,20 @@ void FONSEParameter::proposeCodonSpecificParameter()
     std::vector<double> covaryingNums;
 	//TODO: Explain the following line
     covaryingNums = covarianceMatrix[SequenceSummary::AAToAAIndex(aa)].transformIidNumbersIntoCovaryingNumbers(iidProposed);
-		unsigned biggestCat = std::max(numMutationCategories, numSelectionCategories);
+	unsigned biggestCat = std::max(numMutationCategories, numSelectionCategories);
 
-		for (unsigned i = 0; i < biggestCat; i++)
+	for (unsigned i = 0; i < biggestCat; i++)
     {
       for (unsigned j = i * numCodons, l = aaStart; j < (i * numCodons) + numCodons; j++, l++)
       {
-				if(i < numMutationCategories)
-        	proposedCodonSpecificParameter[dM][i][l] = currentCodonSpecificParameter[dM][i][l] + covaryingNums[j];
-
-				if(i < numSelectionCategories)
-					proposedCodonSpecificParameter[dOmega][i][l] = currentCodonSpecificParameter[dOmega][i][l]
-					+ covaryingNums[(numMutationCategories * numCodons) + j];
+		if(i < numMutationCategories)
+		{
+			proposedCodonSpecificParameter[dM][i][l] = currentCodonSpecificParameter[dM][i][l] + covaryingNums[j];
+		}
+		if(i < numSelectionCategories)
+		{
+			proposedCodonSpecificParameter[dOmega][i][l] = currentCodonSpecificParameter[dOmega][i][l] + covaryingNums[(numMutationCategories * numCodons) + j];
+		}
       }
     }
   }

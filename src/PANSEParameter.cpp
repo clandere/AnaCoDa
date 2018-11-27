@@ -837,14 +837,12 @@ void PANSEParameter::readLambdaValues(std::string filename)
     else
     {
         currentFile >> tmpString;
-        unsigned i = 0;
         while (currentFile >> tmpString){
             pos = tmpString.find(',');
             if (pos != std::string::npos)
             {
                 std::string codon = tmpString.substr(0,3);
                 std::string val = tmpString.substr(pos + 1, std::string::npos);
-                i = SequenceSummary::codonToIndex(codon);
                 tmp[SequenceSummary::codonToIndex(codon)] = std::atof(val.c_str());
             }
         }

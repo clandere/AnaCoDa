@@ -2198,10 +2198,10 @@ if test -z "${R_HOME}"; then
 fi
 
 RBIN="${R_HOME}/bin/R"
-CXX1X=`"${RBIN}" CMD config CXX1X`
-CXX1XSTD=`"${RBIN}" CMD config CXX1XSTD`
-CXX="${CXX1X} ${CXX1XSTD}"
-CXXFLAGS=`"${RBIN}" CMD config CXX1XFLAGS`
+CXX11=`"${RBIN}" CMD config CXX11`
+CXX11STD=`"${RBIN}" CMD config CXX11STD`
+CXX="${CXX11} ${CXX11STD}"
+CXXFLAGS=`"${RBIN}" CMD config CXX11FLAGS`
 
 ## Package requires C++
 ac_ext=cpp

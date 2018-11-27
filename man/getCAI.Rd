@@ -4,7 +4,7 @@
 \alias{getCAI}
 \title{Calculate the Codon Adaptation Index}
 \usage{
-getCAI(referenceGenome, testGenome)
+getCAI(referenceGenome, testGenome, default.weight = 0.5)
 }
 \arguments{
 \item{referenceGenome}{A genome object initialized with \code{\link{initializeGenomeObject}}.
@@ -12,6 +12,8 @@ Serves as reference set to calculate the necessary codon weights.}
 
 \item{testGenome}{A genome object initialized with \code{\link{initializeGenomeObject}}.
 The genome for which the CAI is supposed to be calculated}
+
+\item{default.weight}{Default weight to use if codon is missing from referenceGenome}
 }
 \value{
 Returns a named vector with the CAI for each gene

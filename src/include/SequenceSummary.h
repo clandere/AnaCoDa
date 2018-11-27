@@ -69,29 +69,30 @@ class SequenceSummary
 
 
 		//RFP Functions (for PA and PANSE models) (All tested):
+        //RFP Count has an inner vector indexed by position Sum RFP Count has an inner index of Codon Type
 		void initRFPCount(unsigned numCategories);
 		std::vector <int> getRFPCount(unsigned RFPCountColumn = 0u);
 		int getSingleRFPCount(unsigned position, unsigned RFPCountColumn = 0u);
 		void setRFPCount(std::vector <int> arg, unsigned RFPCountColumn = 0u);
-		
-        void initSumRFPCount(unsigned numCategories); 
+
+        void initSumRFPCount(unsigned numCategories);
 		std::array <unsigned, 64> getSumRFPCount(unsigned RFPCountColumn = 0u);
 		void setSumRFPCount(std::array <unsigned, 64> arg, unsigned RFPCountColumn = 0u);
 
-		std::vector <unsigned> getPositionCodonID(); //Used in PANSE for getting codon positions over gene
-		void setPositionCodonID(std::vector <unsigned> arg);
+        //These functions deal with a single codon at a time
+        unsigned getCodonSpecificSumRFPCount(std::string codon, unsigned RFPCountColumn = 0u);
+        unsigned getCodonSpecificSumRFPCount(unsigned codonIndex, unsigned RFPCountColumn = 0u);
+        void setCodonSpecificSumRFPCount(unsigned codonIndex, unsigned value, unsigned RFPCountColumn = 0u);
 
-        //TODO: Adjust naming for getRFPValue and sumRFPCount
-        unsigned getRFPValue(std::string codon, unsigned RFPCountColumn = 0u);
-        unsigned getRFPValue(unsigned codonIndex, unsigned RFPCountColumn = 0u);
-        void setRFPValue(unsigned codonIndex, unsigned value, unsigned RFPCountColumn = 0u);
+        //Poisitonal information about Codons
+        std::vector <unsigned> getPositionCodonID(); //Used in PANSE for getting codon positions over gene
+        void setPositionCodonID(std::vector <unsigned> arg);
 
 		//Other Functions (All tested):
 		void clear();
 		bool processSequence(const std::string& sequence);
         bool processPA(std::vector <std::vector <int>> table);
         bool processPANSE(std::vector <std::vector <int>> table);
-
 
 		//Static Functions:
 		static unsigned AAToAAIndex(std::string aa); //Moving to CT
@@ -113,5 +114,3 @@ class SequenceSummary
 };
 
 #endif // SequenceSummary_H
-
-

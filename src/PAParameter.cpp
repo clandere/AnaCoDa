@@ -19,7 +19,6 @@ PAParameter::PAParameter() : Parameter()
 	bias_csp = 0;
 	currentCodonSpecificParameter.resize(2);
 	proposedCodonSpecificParameter.resize(2);
-    currentCodonSpecificHyperParameter.resize(6);
 }
 
 
@@ -31,7 +30,6 @@ PAParameter::PAParameter(std::string filename) : Parameter(64)
 {
 	currentCodonSpecificParameter.resize(2);
 	proposedCodonSpecificParameter.resize(2);
-    currentCodonSpecificHyperParameter.resize(6);
 	initFromRestartFile(filename);
 	numParam = 61;
 }
@@ -102,14 +100,6 @@ void PAParameter::initPAParameterSet()
 	currentCodonSpecificParameter.resize(2);
 	proposedCodonSpecificParameter.resize(2);
 
-    currentCodonSpecificHyperParameter.resize(6);
-	currentCodonSpecificHyperParameter[0u].resize(numMixtures);
-	currentCodonSpecificHyperParameter[1u].resize(numMixtures);
-	currentCodonSpecificHyperParameter[2u].resize(numMixtures);
-	currentCodonSpecificHyperParameter[3u].resize(numMixtures);
-	currentCodonSpecificHyperParameter[4u].resize(numMixtures);
-	currentCodonSpecificHyperParameter[5u].resize(numMixtures);
-
 	currentCodonSpecificParameter[alp].resize(alphaCategories);
 	proposedCodonSpecificParameter[alp].resize(alphaCategories);
 	currentCodonSpecificParameter[lmPri].resize(lambdaPrimeCategories);
@@ -125,23 +115,11 @@ void PAParameter::initPAParameterSet()
 	}
 	for (unsigned i = 0; i < lambdaPrimeCategories; i++)
 	{
-		std::vector <double> tmp(numParam,1.0);
+		std::vector <double> tmp(numParam,0.1);
 		currentCodonSpecificParameter[lmPri][i] = tmp;
 		proposedCodonSpecificParameter[lmPri][i] = tmp;
 		lambdaValues[i] = tmp; //Maybe we don't initialize this one? or we do it differently?
 	}
-
-    //Used for CSP Proposal debuging
-    for (unsigned i = 0; i < numMixtures; i++)
-    {
-        std::vector <double> tmp(numParam, 1.0);
-        currentCodonSpecificHyperParameter[0u][i] = tmp;
-        currentCodonSpecificHyperParameter[1u][i] = tmp;
-        currentCodonSpecificHyperParameter[2u][i] = tmp;
-        currentCodonSpecificHyperParameter[3u][i] = tmp;
-        currentCodonSpecificHyperParameter[4u][i] = tmp;
-        currentCodonSpecificHyperParameter[5u][i] = tmp;
-    }
 
 	bias_csp = 0;
 	std_csp.resize(numParam, 0.1);
@@ -463,30 +441,15 @@ void PAParameter::initMutationSelectionCategories(std::vector<std::string> files
 // ---------- Trace Functions -----------//
 // --------------------------------------//
 
-
 /* updateCodonSpecificParameterTrace (NOT EXPOSED)
  * Arguments: sample index to update, codon given as a string
  * Takes a sample as an index into the trace and will eventually convert the codon into
  * an index into the trace as well.
- * Codon Specific Hyper Parameters
- * 1u Random Number
- * 2u Acceptance Ratio
- * 3u Current Log Likelihood
- * 4u Proposed Log Likelihood
- * 5u Current Log Likelihood adjusted
- * 6u Proposed Log Likelihood adjusted
-*/
+ */
 void PAParameter::updateCodonSpecificParameterTrace(unsigned sample, std::string codon)
 {
-	traces.updateCodonSpecificParameterTraceForCodon(sample, codon, currentCodonSpecificParameter[alp], alp);
-	traces.updateCodonSpecificParameterTraceForCodon(sample, codon, currentCodonSpecificParameter[lmPri], lmPri);
-
-	traces.updateCodonSpecificHyperParameterTraceForCodon(sample, codon, currentCodonSpecificHyperParameter[0u], 0u);
-	traces.updateCodonSpecificHyperParameterTraceForCodon(sample, codon, currentCodonSpecificHyperParameter[1u], 1u);
-	traces.updateCodonSpecificHyperParameterTraceForCodon(sample, codon, currentCodonSpecificHyperParameter[2u], 2u);
-	traces.updateCodonSpecificHyperParameterTraceForCodon(sample, codon, currentCodonSpecificHyperParameter[3u], 3u);
-	traces.updateCodonSpecificHyperParameterTraceForCodon(sample, codon, currentCodonSpecificHyperParameter[4u], 4u);
-	traces.updateCodonSpecificHyperParameterTraceForCodon(sample, codon, currentCodonSpecificHyperParameter[5u], 5u);
+    traces.updateCodonSpecificParameterTraceForCodon(sample, codon, currentCodonSpecificParameter[alp], alp);
+    traces.updateCodonSpecificParameterTraceForCodon(sample, codon, currentCodonSpecificParameter[lmPri], lmPri);
 }
 
 
@@ -529,9 +492,15 @@ void PAParameter::proposeCodonSpecificParameter()
 	{
 		for (unsigned j = 0; j < numLambdaPrime; j++)
 		{
-			proposedCodonSpecificParameter[lmPri][i][j] = std::exp( randNorm( std::log(currentCodonSpecificParameter[lmPri][i][j]) , std_csp[j]) );
+			double l = proposedCodonSpecificParameter[lmPri][i][j] = std::exp( randNorm( std::log(currentCodonSpecificParameter[lmPri][i][j]) , std_csp[j]) );
 		}
-	}
+	}/*
+    if (std::isnan(l) || std::isnan(a)){
+        div_flag = TRUE;
+        bool isAlpha = isnan(a);
+        my_print("First divergence is alpha %\n The Current state is:
+        \n", isAlpha);
+    }*/
 }
 
 
@@ -544,63 +513,8 @@ void PAParameter::updateCodonSpecificParameter(std::string grouping)
 {
 	unsigned i = SequenceSummary::codonToIndex(grouping);
 	numAcceptForCodonSpecificParameters[i]++;
-
-	for (unsigned k = 0u; k < numMutationCategories; k++)
-	{
-		double a = currentCodonSpecificParameter[alp][k][i] = proposedCodonSpecificParameter[alp][k][i];
-        //my_print("updated alpha is %\n", a);
-	}
-	for (unsigned k = 0u; k < numSelectionCategories; k++)
-	{
-		double l = currentCodonSpecificParameter[lmPri][k][i] = proposedCodonSpecificParameter[lmPri][k][i];
-        //my_print("updated lambda is %\n", l);
-	}
 }
 
-void PAParameter::updateCodonSpecificHyperParameter(std::string grouping, double randomNumber, double acceptanceRatio, double currLogLikelihood, double propLogLikelihood, double currLogLikelihoodAdjusted, double propLogLikelihoodAdjusted)
-{
-    unsigned i = SequenceSummary::codonToIndex(grouping);
-
-    for (unsigned k = 0u; k < numMixtures; k++)
-    {
-        currentCodonSpecificHyperParameter[0u][k][i] = randomNumber;
-        currentCodonSpecificHyperParameter[1u][k][i] = acceptanceRatio;
-        currentCodonSpecificHyperParameter[2u][k][i] = currLogLikelihood;
-        currentCodonSpecificHyperParameter[3u][k][i] = propLogLikelihood;
-        currentCodonSpecificHyperParameter[4u][k][i] = currLogLikelihoodAdjusted;
-        currentCodonSpecificHyperParameter[5u][k][i] = propLogLikelihoodAdjusted;
-    }
-}
-
-double PAParameter::calculateExpectedZ(Genome &genome)
-{
-    double sum = 0;
-    double tmp = 0;
-
-    for (unsigned i = 0u; i < currentSynthesisRateLevel.size(); i++)
-    {
-        unsigned start, end;
-        Gene gene = genome.getGene(i);
-
-        SequenceSummary::AAIndexToCodonRange(i, start, end, false);
-
-        //Indexing may be off check read mechanism
-        double phi = currentSynthesisRateLevel[0][i];
-        for (unsigned j = start; j < end; j++)
-        {
-            std::string codon = gene.geneData.indexToCodon(j);
-            double currCodonCount = gene.getCodonCount(codon);
-            double alpha = currentCodonSpecificParameter[alp][0][j];
-            double lambda = currentCodonSpecificParameter[lmPri][0][i];
-
-            sum += (currCodonCount * alpha / lambda);
-        }
-
-        sum += (tmp * phi);
-    }
-
-    return sum;
-}
 
 // ----------------------------------------------//
 // ---------- Adaptive Width Functions ----------//
@@ -616,7 +530,7 @@ double PAParameter::calculateExpectedZ(Genome &genome)
 void PAParameter::adaptCodonSpecificParameterProposalWidth(unsigned adaptationWidth, unsigned lastIteration, bool adapt)
 {
 	my_print("acceptance rate for codon:\n");
-    adapt = false;
+    adapt = true;
 	for (unsigned i = 0; i < groupList.size(); i++)
 	{
 		my_print("%\t", groupList[i]);

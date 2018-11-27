@@ -73,36 +73,6 @@ plot.Rcpp_Trace <- function(x, what=c("Mutation", "Selection", "MixtureProbabili
     plotExpressionTrace(x, geneIndex)
   }
 
-  #CSHP Debug
-  if(what[1] == "RandomNumber")
-  {
-      plotCodonSpecificHyperParameters(x, mixture, "RandomNumber", "Random Number Trace", TRUE)
-  }
-
-  if(what[1] == "AcceptanceRatio")
-  {
-      plotCodonSpecificHyperParameters(x, mixture, "AcceptanceRatio", "Acceptance Ratio Trace", TRUE)
-  }
-
-  if(what[1] == "CurrentLogLikelihood")
-  {
-      plotCodonSpecificHyperParameters(x, mixture, "CurrentLogLikelihood", "Current Log Likelihood Trace", TRUE)
-  }
-  
-  if(what[1] == "ProposedLogLikelihood")
-  {
-      plotCodonSpecificHyperParameters(x, mixture, "ProposedLogLikelihood", "Proposed Log Likelihood Trace", TRUE)
-  }
-
-  if(what[1] == "CurrentLogLikelihoodAdjusted")
-  {
-      plotCodonSpecificHyperParameters(x, mixture, "CurrentLogLikelihoodAdjusted", "Adjusted Current Log Likelihood Trace", TRUE)
-  }
-
-  if(what[1] == "RandomNumber")
-  {
-      plotCodonSpecificHyperParameters(x, mixture, "ProposedLogLikelihoodAdjusted", "Adjusted Proposed Log Likelihood Trace", TRUE)
-  }
 
 }
 

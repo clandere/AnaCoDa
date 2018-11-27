@@ -206,7 +206,7 @@ void Gene::setPASequence(std::vector<std::vector<int>> table)
     unsigned nRows = (unsigned)table.size();
 
     seq.resize(nRows * 3); //multiply by three since codons
-    
+
     for (unsigned i = 0; i < nRows; i++)
     {
         std::string codon = SequenceSummary::indexToCodon((unsigned) table[i][1]);
@@ -229,7 +229,7 @@ void Gene::setPANSESequence(std::vector<std::vector<int>> table)
     unsigned nRows = (unsigned)table.size();
 
     seq.resize(nRows * 3); //multiply by three since codons
-    
+
     for (unsigned i = 0; i < nRows; i++)
     {
         std::string codon = SequenceSummary::indexToCodon((unsigned) table[i][1]);
@@ -499,7 +499,7 @@ unsigned Gene::getCodonCount(std::string& codon)
 
 /*
  * To implement this function in R, the index is also checked.
- * This is the R-wrapper for the C-side function "SequenceSummary::getRFPValue".
+ * This is the R-wrapper for the C-side function "SequenceSummary::getCodonSpecificSumRFPCount".
 */
 // Note: From function definition in header, default category is 1.
 unsigned Gene::getSumRFPCountForCodon(std::string codon, unsigned RFPCountColumn)
@@ -509,7 +509,7 @@ unsigned Gene::getSumRFPCountForCodon(std::string codon, unsigned RFPCountColumn
     if (SequenceSummary::codonToIndexWithReference.end() != SequenceSummary::codonToIndexWithReference.find(codon))
     {
         // Convert RFPCountColumn to 0-indexing internally
-        rv = geneData.getRFPValue(codon, RFPCountColumn - 1);
+        rv = geneData.getCodonSpecificSumRFPCount(codon, RFPCountColumn - 1);
     }
     else
     {
@@ -541,19 +541,6 @@ std::vector <unsigned> Gene::getCodonPositions(std::string codon)
         rv.push_back(tmp->at(i));
     }
     return rv;
-}
-
-//Debug
-int Gene::getTotalRFPCount()
-{
-    std::vector <int> rfpCounts = getRFPCount();
-    int sum = 0;
-
-    for (unsigned i = 0u; i < rfpCounts.size(); i++){
-        sum += rfpCounts[i];
-    }
-
-    return sum;
 }
 
 

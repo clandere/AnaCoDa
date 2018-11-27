@@ -1,3 +1,10 @@
+# CHANGES IN AnaCoDa 0.1.2
+
+## BUG FIXES
+- fixed a bug were the scaling of observed phi values was used inconsitently, causing problems with estimates of Aphi and Sepsilon
+
+## NEW FEATURES
+- Added SCUO calculation and improved getCSPEstimates to include reference codons
 
 # CHANGES IN AnaCoDa 0.1.1
 

@@ -5,7 +5,8 @@
 \title{Genome Initialization}
 \usage{
 initializeGenomeObject(file, genome = NULL, observed.expression.file = NULL,
-  fasta = TRUE, match.expression.by.id = TRUE, append = FALSE)
+  fasta = TRUE, simulated = FALSE, match.expression.by.id = TRUE,
+  append = FALSE)
 }
 \arguments{
 \item{file}{A file of coding sequences in fasta or RFPData format}
@@ -17,6 +18,8 @@ empirical expression rates (optional).}
 
 \item{fasta}{A boolean value which decides whether to initialize with a
 fasta file or an RFPData file. (TRUE for fasta, FALSE for RFPData)}
+
+\item{simulated}{boolean to determine if the data should be treated as a simulated data set (Default = FALSE).}
 
 \item{match.expression.by.id}{If TRUE (default), observed expression values will be assigned by matching sequence identifier.
 If FALSE, observed expression values will be assigned by order.}

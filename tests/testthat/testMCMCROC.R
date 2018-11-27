@@ -51,7 +51,7 @@ runMCMC(mcmc, genome, model, 1, divergence.iteration)
 sink()
 
 test_that("identical MCMC-ROC input with Phi, same log posterior", {
-  knownLogPosterior <- -827733
+  knownLogPosterior <- -828047
   testLogPosterior <- round(mcmc$getLogPosteriorTrace()[10])
   expect_equal(knownLogPosterior, testLogPosterior)
 })

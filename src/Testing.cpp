@@ -968,96 +968,97 @@ int testSequenceSummary()
         error = 0; //Reset for next function.
 
     //---------------------------------------------------------//
-    //------ getRFPValue(string) / setRFPValue Functions ------//
+    //------ getCodonSpecificSumRFPCount(string)---------------//
+    //-------setCodonSpecificSumRFPCount Functions ------------//
     //---------------------------------------------------------//
-    SS.setRFPValue(4, 35);
-    SS.setRFPValue(16,45);
-    SS.setRFPValue(54,2);
-    SS.setRFPValue(45,0);
+    SS.setCodonSpecificSumRFPCount(4, 35);
+    SS.setCodonSpecificSumRFPCount(16,45);
+    SS.setCodonSpecificSumRFPCount(54,2);
+    SS.setCodonSpecificSumRFPCount(45,0);
 
-    unsigned tmp = SS.getRFPValue("TGC");
+    unsigned tmp = SS.getCodonSpecificSumRFPCount("TGC");
     if (35 != tmp)
     {
-        my_printError("Error in getRFPValue(string) or setRFPValue for codon \"TGC\".\n");
+        my_printError("Error in getCodonSpecificSumRFPCount(string) or setCodonSpecificSumRFPCount for codon \"TGC\".\n");
         my_printError("Should return 35, but returns %\n", tmp);
         error = 1;
         globalError = 1;
     }
 
-    tmp = SS.getRFPValue("CAC");
+    tmp = SS.getCodonSpecificSumRFPCount("CAC");
     if (45 != tmp)
     {
-        my_printError("Error in getRFPValue(string) or setRFPValue for codon \"CAC\".\n");
+        my_printError("Error in getCodonSpecificSumRFPCount(string) or setCodonSpecificSumRFPCount for codon \"CAC\".\n");
         my_printError("Should return 45, but returns %\n", tmp);
         error = 1;
         globalError = 1;
     }
 
-    tmp = SS.getRFPValue("GTG");
+    tmp = SS.getCodonSpecificSumRFPCount("GTG");
     if (2 != tmp)
     {
-        my_printError("Error in getRFPValue(string) or set RFPValue for codon \"GTG\".\n");
+        my_printError("Error in getCodonSpecificSumRFPCount(string) or set RFPValue for codon \"GTG\".\n");
         my_printError("Should return 2, but returns %\n", tmp);
         error = 1;
         globalError = 1;
     }
 
-    tmp = SS.getRFPValue("TCC");
+    tmp = SS.getCodonSpecificSumRFPCount("TCC");
     if (0 != tmp)
     {
-        my_printError("Error in getRFPValue(string) or setRFPValue for codon \"TCC\".\n");
+        my_printError("Error in getCodonSpecificSumRFPCount(string) or setCodonSpecificSumRFPCount for codon \"TCC\".\n");
         my_printError("Should return 0, but returns %\n", tmp);
         error = 1;
         globalError = 1;
     }
 
     if (!error)
-        my_print("Sequence Summary getRFPValue(string) / setRFPValue --- Pass\n");
+        my_print("Sequence Summary getCodonSpecificSumRFPCount(string) / setCodonSpecificSumRFPCount --- Pass\n");
     else
         error = 0; //Reset for next function.
 
     //-----------------------------------------//
-    //------ getRFPValue(index) Function ------//
+    //------ getCodonSpecificSumRFPCount(index) Function ------//
     //-----------------------------------------//
-    SS.setRFPValue(0,45);
-    SS.setRFPValue(1,52);
-    SS.setRFPValue(2,63);
-    SS.setRFPValue(60,23);
+    SS.setCodonSpecificSumRFPCount(0,45);
+    SS.setCodonSpecificSumRFPCount(1,52);
+    SS.setCodonSpecificSumRFPCount(2,63);
+    SS.setCodonSpecificSumRFPCount(60,23);
 
-    tmp = SS.getRFPValue(0);
+    tmp = SS.getCodonSpecificSumRFPCount(0);
     if (45 != tmp)
     {
-        my_printError("Error with getRFPValue(index) for codon index 0.\n Should return 45, but returns %\n", tmp);
+        my_printError("Error with getCodonSpecificSumRFPCount(index) for codon index 0.\n Should return 45, but returns %\n", tmp);
         error = 1;
         globalError = 1;
     }
 
-    tmp = SS.getRFPValue(1);
+    tmp = SS.getCodonSpecificSumRFPCount(1);
     if (52 != tmp)
     {
-        my_printError("Error with getRFPValue(index) for codon index 1.\n Should return 52, but returns %\n", tmp);
+        my_printError("Error with getCodonSpecificSumRFPCount(index) for codon index 1.\n Should return 52, but returns %\n", tmp);
         error = 1;
         globalError = 1;
     }
 
-    tmp = SS.getRFPValue(2);
+    tmp = SS.getCodonSpecificSumRFPCount(2);
     if (63 != tmp)
     {
-        my_printError("Error with getRFPValue(index) for codon index 2.\n Should return 63, but returns %\n", tmp);
+        my_printError("Error with getCodonSpecificSumRFPCount(index) for codon index 2.\n Should return 63, but returns %\n", tmp);
         error = 1;
         globalError = 1;
     }
 
-    tmp = SS.getRFPValue(60);
+    tmp = SS.getCodonSpecificSumRFPCount(60);
     if (23 != tmp)
     {
-        my_printError("Error with getRFPValue(index) for codon index 60.\n should return 23, but returns %\n", tmp);
+        my_printError("Error with getCodonSpecificSumRFPCount(index) for codon index 60.\n should return 23, but returns %\n", tmp);
         error = 1;
         globalError = 1;
     }
 
     if (!error)
-        my_print("Sequence Summary getRFPValue(index) --- Pass\n");
+        my_print("Sequence Summary getCodonSpecificSumRFPCount(index) --- Pass\n");
     // No need to reset error
 
     return globalError;
@@ -1217,10 +1218,10 @@ int testGene()
     /*
     for (unsigned i = 0; i < 64; i++)
     {
-        if (SS.getRFPValue(i) != GeneSS->getRFPValue(i))
+        if (SS.getCodonSpecificSumRFPCount(i) != GeneSS->getCodonSpecificSumRFPCount(i))
         {
             my_printError("Error in testGene: getSequenceSummary. RFP observed is incorrect for codon %.\n", i);
-            my_printError("Should return %, but returns %\n", SS.getRFPValue(i), GeneSS->getRFPValue(i));
+            my_printError("Should return %, but returns %\n", SS.getCodonSpecificSumRFPCount(i), GeneSS->getCodonSpecificSumRFPCount(i));
             error = 1;
             globalError = 1;
         }
@@ -1887,7 +1888,7 @@ int testGenome(std::string testFileDir)
 
     //reuse generic vector of unsigned integers
     uVector = {0, 1, 2, 3};
-    //uVector = {1, 2, 3, 4};  
+    //uVector = {1, 2, 3, 4};
 
     if (!(genome1 == genome1.getGenomeForGeneIndices(uVector, false)))
     {
@@ -2047,7 +2048,7 @@ int testGenome(std::string testFileDir)
     // Then, check if the function works compared to an RFPData-formatted read-in genome (genome 1 again).
     genome2.writeRFPData(file2, true);
     genome1.readSimulatedGenomeFromPAModel(file2);
-    
+
     if (!(testGenomeSimulatedPAEqualityHelper(genome1, genome2)))
     {
         my_printError("Error in testGenome: readSimulatedGenomeFromPAModel with simulated genes. Genomes are not equivalent.\n");
@@ -3443,95 +3444,14 @@ int testMCMCAlgorithm()
     int globalError = 0;
 
     MCMCAlgorithm mcmc = MCMCAlgorithm(samples, thinning, 10, true, true, true);
-    /*
-    my_print("Initializing MCMCAlgorithm object---------------\n");
-    my_print("\t# Samples: %\n", samples);
-    my_print("\tThinning: %\n", thinning);
-    my_print("\t # Samples used: %\n", 100);
 
-    MCMCAlgorithm mcmc = MCMCAlgorithm(samples, thinning, 10, true, true, true);
-    my_print("Done!-------------------------------\n\n\n");
-
-    my_print("Initializing Genome object--------------------------\n");
-    Genome genome;
-    genome.readRFPData("/Users/hollisbui/RibModelDev/data/rfp/rfp.counts.by.codon.and.gene.GSE63789.wt.csv");
-    my_print("Done!-------------------------------\n\n\n");
-    my_print("Initializing shared parameter variables---------------\n");
-    unsigned numMixtures = 1;
-    std::vector <double> stdDev(numMixtures, 1);
-    unsigned numGenes = genome.getGenomeSize();
-    std::vector <unsigned> geneAssignment(numGenes);
-    if (numMixtures == 1)
-    {
-        for (unsigned i = 0u; i < numGenes; i++)
-        {
-            geneAssignment[i] = 0u;
-        }
-    }
-    else if (numMixtures == 3)
-    {
-        for (unsigned i = 0u; i < numGenes; i++)
-        {
-            if (i < 961) geneAssignment[i] = 0u;
-            else if (i < 1418) geneAssignment[i] = 1u;
-            else geneAssignment[i] = 0u;
-        }
-    }
-    std::vector<std::vector<unsigned>> mixtureDefinitionMatrix;
-    bool splitSer = true;
-    std::string mutationSelectionState = Parameter::allUnique;
-    my_print("Done!------------------------\n\n\n");
-
-
-    my_print("Initializing PAParameter object--------------------\n\n");
-    PAParameter parameter(stdDev, numMixtures, geneAssignment, mixtureDefinitionMatrix, splitSer, mutationSelectionState);
-    for (unsigned i = 0u; i < numMixtures; i++)
-    {
-        unsigned selectionCategory = parameter.getSelectionCategory(i);
-        my_print("Sphi_init for selection category %: %\n", selectionCategory, stdDev[selectionCategory]);
-    }
-    my_print("\t# mixtures: %\n", numMixtures);
-    my_print("\tmixture definition: %\n", mutationSelectionState);
-
-    parameter.InitializeSynthesisRate(genome, stdDev[0]);
-
-    my_print("Done!--------------------------------\n\n\n");
-
-    my_print("Initializing PAModel object--------------------------\n");
-    PAModel model;
-    model.setParameter(parameter);
-    my_print("Done!----------------------------------\n\n\n");
-
-    my_print("Running MCMC.............\n\n");
-    mcmc.run(genome, model, 1, 0);
-    my_print("Done!----------------------------------\n\n\n");
-    */
-
-    //--------------------------------------------//
-    //------ varyInitialConditions Function ------//
-    //--------------------------------------------//
-
-    //TODO: must be done before run, etc.
-    //Requires running with models: ROC, RFP, FONSE.
-    //Thus, unit testing can only be done after those models are unit tested.
-
-    //--------------------------//
-    //------ run Function ------//
-    //--------------------------//
-
-    //-------------------------------------------//
-    //------ calculateGewekeScore Function ------//
-    //-------------------------------------------//
-
-    //---------------------------------------------------//
-    //------ is/setEstimateSynthesisRate Functions ------//
-    //---------------------------------------------------//
     if (!mcmc.isEstimateSynthesisRate())
     {
         my_printError("Error in isEstimateSynthesisRate. Function should return true, but returns false.\n");
         error = 1;
         globalError = 1;
     }
+    my_print("checked mcmc.isEstimateSynthesisRate(default)\n");
 
     mcmc.setEstimateSynthesisRate(false);
     if (mcmc.isEstimateSynthesisRate())
@@ -3541,6 +3461,7 @@ int testMCMCAlgorithm()
         error = 1;
         globalError = 1;
     }
+    my_print("checked mcmc.isEstimateSynthesisRate(false)\n");
 
     mcmc.setEstimateSynthesisRate(true);
     if (!mcmc.isEstimateSynthesisRate())
@@ -3550,6 +3471,7 @@ int testMCMCAlgorithm()
         error = 1;
         globalError = 1;
     }
+    my_print("checked mcmc.isEstimateSynthesisRate(true)\n");
 
     if (!error)
         my_print("MCMCAlgorithm is/setEstimateSynthesisRate --- Pass\n");
