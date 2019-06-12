@@ -102,7 +102,7 @@
 #' 
 #' ## initialize a parameter object with a custon mixture definition matrix
 #' def.matrix <- matrix(c(1,1,1,2), ncol=2)
-#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
 #' parameter <- initializeParameterObject(genome = genome, sphi = c(0.5, 2), num.mixtures = 2,
 #'                                        gene.assignment = geneAssignment,
 #'                                        mixture.definition.matrix = def.matrix)
@@ -543,6 +543,135 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
 # }
 
 
+
+#' Calculates the marginal log-likelihood for a set of parameters
+#'
+#' @param parameter An object created with \code{initializeParameterObject}. 
+#'  
+#' @param mcmc An object created with \code{initializeMCMCObject} 
+#'  
+#' @param mixture determines for which mixture the marginal log-likelihood should be calculated
+#'    
+#' @param n.samples How many samples should be used for the calculation 
+#'  
+#' @param divisor A value > 1 in order to scale down the tails of the importance distribution
+#'  
+#' @return This function returns the model object created. 
+#'  
+#' @description initializes the model object. 
+#' 
+#' @details calculateMarginalLogLikelihood Calculate marginal log-likelihood for
+#' calculation of the Bayes factor using a generalized harmonic mean estimator of the 
+#' marginal likelihood. See Gronau et al. (2017) for details
+#'
+#' @examples 
+#' \dontrun{
+#' # Calculate the log-marginal likelihood
+#' parameter <- loadParameterObject("parameter.Rda")
+#' mcmc <- loadMCMCObject("mcmc.Rda")
+#' calculateMarginalLogLikelihood(parameter, mcmc, mixture = 1, 
+#' samples = 500, scaling = 1.5)
+#'
+#' # Calculate the Bayes factor for two models
+#' parameter1 <- loadParameterObject("parameter1.Rda")
+#' parameter2 <- loadParameterObject("parameter2.Rda")
+#' mcmc1 <- loadMCMCObject("mcmc1.Rda")
+#' mcmc2 <- loadMCMCObject("mcmc2.Rda")
+#' mll1 <- calculateMarginalLogLikelihood(parameter1, mcmc1, mixture = 1, 
+#' samples = 500, scaling = 1.5)
+#' mll2 <- calculateMarginalLogLikelihood(parameter2, mcmc2, mixture = 1, 
+#' samples = 500, scaling = 1.5)
+#' cat("Bayes factor: ", mll1 - mll2, "\n")
+#' }
+#'  
+calculateMarginalLogLikelihood <- function(parameter, mcmc, mixture, n.samples, divisor)
+{  
+  if(divisor < 1) stop("Generalized Harmonic Mean Estimation of Marginal Likelihood requires importance sampling distribution variance divisor be greater than 1")
+
+  ## Collect information from AnaCoDa objects
+  trace <- parameter$getTraceObject()
+  ## This should be the posterior instead of the log_posterior but this causes an overflow, find fix!!!
+  log_posterior <- mcmc$getLogPosteriorTrace()
+  log_posterior <- log_posterior[(length(log_posterior) - n.samples+1):(length(log_posterior))]
+  
+  ### HANDLE CODON SPECIFIC PARAMETERS
+  log_imp_dens_sample <- rep(0, n.samples)
+  for(ptype in 0:1) # for all parameter types (mutation/selection parameters)
+  {
+    for(aa in AnaCoDa::aminoAcids()) # for all amino acids
+    {
+      if(aa == "M" || aa == "W" || aa == "X") next # ignore amino acids with only one codon or stop codons 
+      codons <- AnaCoDa::AAToCodon(aa, focal = T)
+      ## get covariance matrix and mean of importance distribution
+      sample_mat <- matrix(NA, ncol = length(codons), nrow = n.samples)
+      mean_vals <- rep(NA, length(codons))
+      for(i in 1:length(codons)) # for all codons
+      {
+        vec <- trace$getCodonSpecificParameterTraceByMixtureElementForCodon(mixture, codons[i], ptype, TRUE)
+        vec <- vec[(length(vec) - n.samples+1):(length(vec))]
+        sample_mat[,i] <- vec
+        mean_vals[i] <- mean(vec)
+      }
+      ## scale/shrinked covariance matrix
+      cov_mat <- cov(sample_mat) / divisor
+      
+      for(i in 1:n.samples)
+      {
+        ## calculate importance density for collected samples
+        ## mikeg: We should double check with Russ that it is okay to use the full covariance matrix of the sample (even though we have no prior on the cov structure) when constructing the importance density function.
+        ## It seems logical to do so
+        log_imp_dens_aa <- dmvnorm(x = sample_mat[i,], mean = mean_vals, sigma = cov_mat, log = TRUE)
+        log_imp_dens_sample[i] = log_imp_dens_sample[i] + log_imp_dens_aa
+      }
+    }
+  }
+  
+  ## HANDLE GENE SPECIFIC PARAMETERS
+  
+  # phi values are stored on natural scale.
+  synt_trace <- trace$getSynthesisRateTrace()[[mixture]]
+  n_genes = length(synt_trace);
+  
+  sd_vals <- rep(NA, n_genes)
+  mean_vals <- rep(NA, n_genes)
+  for(i in 1:n_genes) ## i is indexing across genes
+  {
+    vec <- synt_trace[[i]]
+    
+    vec <- vec[(length(vec) - n.samples+1):(length(vec))]
+    
+    sd_vals[i] <- sd(vec)
+    mean_vals[i] <- mean(vec)
+    log_mean_vals = log(mean_vals) - 0.5 * log(1+(sd_vals^2/mean_vals^2))
+    log_sd_vals = sqrt(log(1+(sd_vals^2/mean_vals^2)))
+    
+    ## Calculate vector of importance density for entire \phi trace of gene.
+    log_imp_dens_phi <- dlnorm(x = vec, meanlog = log_mean_vals[i], sdlog = log_sd_vals[i]/divisor, log = TRUE)
+    
+    
+    ## update importance density function vector of sample with current gene;
+    log_imp_dens_sample = log_imp_dens_sample + log_imp_dens_phi
+    
+  } ## end synth_trace loop
+  
+  ## Scale importance density for each sample by its posterior probability (on log scale)
+  log_imp_dens_over_posterior = log_imp_dens_sample - log_posterior
+  
+  ## now scale by max term to facilitate summation
+  max_log_term = max(log_imp_dens_over_posterior)
+  ## Y = X - max_X
+  offset_log_imp_dens_over_posterior <- log_imp_dens_over_posterior - max_log_term
+  ## Z = sum(exp(vec(Y)))
+  offset_sum_imp_dens_over_posterior <- sum(exp(offset_log_imp_dens_over_posterior))/n.samples
+  log_sum_imp_dens_over_posterior <- log(offset_sum_imp_dens_over_posterior) + max_log_term
+  ## ln(ML) = ln(n) -(Z + max_X)
+  log_marg_lik <- log(n.samples) - log_sum_imp_dens_over_posterior
+  ##marg_lik = 1.0/(log_inv_marg_lik/n.samples) # equation 9
+  return(log_marg_lik)
+}
+
+
+
 #' Find and return list of optimal codons
 #' 
 #' \code{findOptimalCodon} extracrs the optimal codon for each amino acid.
@@ -622,7 +751,7 @@ findOptimalCodon <- function(csp)
 #' genome <- initializeGenomeObject(file = genome_file)
 #' sphi_init <- c(1,1)
 #' numMixtures <- 2
-#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
 #' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
 #'                                        num.mixtures = numMixtures, 
 #'                                        gene.assignment = geneAssignment, 
@@ -689,8 +818,8 @@ getCSPEstimates <- function(parameter, filename=NULL, mixture = 1, samples = 10,
     }
     csp.param <- vector(mode="list",length=2)
     names(csp.param) <- parameter.names
-    csp.param[[parameter.names[1]]] <- param.1
-    csp.param[[parameter.names[2]]] <- param.2
+    csp.param[[parameter.names[1]]] <- param.1[,c("AA", "Codon", "Posterior", "0.025%", "0.975%")]
+    csp.param[[parameter.names[2]]] <- param.2[,c("AA", "Codon", "Posterior", "0.025%", "0.975%")]
   }
   if(is.null(filename))
   {
@@ -741,8 +870,8 @@ optimalAsReference <- function(param.1,param.2,parameter.names,report.original.r
   }
   csp.param <- vector(mode="list",length=2)
   names(csp.param) <- parameter.names
-  csp.param[[parameter.names[1]]] <- updated.param.1
-  csp.param[[parameter.names[2]]] <- updated.param.2
+  csp.param[[parameter.names[1]]] <- updated.param.1[,c("AA", "Codon", "Posterior", "0.025%", "0.975%")]
+  csp.param[[parameter.names[2]]] <- updated.param.2[,c("AA", "Codon", "Posterior", "0.025%", "0.975%")]
   return(csp.param)
 }
 
@@ -888,7 +1017,7 @@ splitMatrix <- function(M, r, c){
 #' genome <- initializeGenomeObject(file = genome_file)
 #' sphi_init <- c(1,1)
 #' numMixtures <- 2
-#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
 #' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
 #'                                        num.mixtures = numMixtures, 
 #'                                        gene.assignment = geneAssignment, 
@@ -948,7 +1077,6 @@ initializeCovarianceMatrices <- function(parameter, genome, numMixtures, geneAss
     for(mixElement in 1:numMixtures){    
       idx <- geneAssignment == mixElement
       csp <- getCSPbyLogit(codonCounts[idx, ], phi[idx])
-      
       parameter$initMutation(csp$coef.mat[1,], mixElement, aa)
       parameter$initSelection(csp$coef.mat[2,], mixElement, aa)
     }
@@ -1036,7 +1164,7 @@ initializeCovarianceMatrices <- function(parameter, genome, numMixtures, geneAss
 #' genome <- initializeGenomeObject(file = genome_file)
 #' sphi_init <- c(1,1)
 #' numMixtures <- 2
-#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
 #' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
 #'                                        num.mixtures = numMixtures, 
 #'                                        gene.assignment = geneAssignment, 
@@ -1094,7 +1222,7 @@ getMixtureAssignmentEstimate <- function(parameter, gene.index, samples)
 #' genome <- initializeGenomeObject(file = genome_file)
 #' sphi_init <- c(1,1)
 #' numMixtures <- 2
-#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
 #' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
 #'                                        num.mixtures = numMixtures, 
 #'                                        gene.assignment = geneAssignment, 
@@ -1170,7 +1298,7 @@ getExpressionEstimates <- function(parameter, gene.index, samples, quantiles=c(0
 #' genome <- initializeGenomeObject(file = genome_file)
 #' sphi_init <- c(1,1)
 #' numMixtures <- 2
-#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
 #' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
 #'                                        num.mixtures = numMixtures, 
 #'                                        gene.assignment = geneAssignment, 

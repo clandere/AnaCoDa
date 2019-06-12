@@ -129,7 +129,7 @@ getCodonCountsForAA <- function(aa, genome){
 
 #' calculates the synonymous codon usage order (SCUO) 
 #' 
-#' \code{calculateSCUO} calulates the SCUO value for each gene in genome
+#' \code{calculateSCUO} calulates the SCUO value for each gene in genome. Note that if a codon is absent, this will be treated as NA and will be skipped in final calculation
 #' 
 #' @param genome A genome object initialized with \code{\link{initializeGenomeObject}}.
 #' 
@@ -163,7 +163,6 @@ calculateSCUO <- function(genome)
       codon.count <- unlist(lapply(codon, FUN = function(c){return(g$getCodonCount(c))}))
       codon.propotions <- codon.count / aa.count
       aa.entropy <- sum(codon.propotions * log(codon.propotions))
-      
       max.entropy <- -log(1/num.codons)
       norm.entropy.diff <- (max.entropy - aa.entropy) / max.entropy
       
@@ -171,8 +170,9 @@ calculateSCUO <- function(genome)
       scuo.aa <- comp.ratio * norm.entropy.diff
       return(scuo.aa)
     }))
-    scuo.values[i] <- sum(scuo.per.aa)
+    scuo.values[i,"SCUO"] <- sum(scuo.per.aa,na.rm = T)
   }
+  return(scuo.values)
 }
 
 #' Length of Genome

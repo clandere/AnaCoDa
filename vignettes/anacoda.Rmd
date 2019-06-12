@@ -1,6 +1,6 @@
 ---
 title: "AnaCoDa: Analyzing Codon Data"
-author: "Cedric Landerer & Alex Cope"
+author: "Cedric Landerer & Alexander L. Cope"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 bibliography: anacoda.bib

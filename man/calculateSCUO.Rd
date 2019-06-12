@@ -13,7 +13,7 @@ calculateSCUO(genome)
 returns the SCUO value for each gene in genome
 }
 \description{
-\code{calculateSCUO} calulates the SCUO value for each gene in genome
+\code{calculateSCUO} calulates the SCUO value for each gene in genome. Note that if a codon is absent, this will be treated as NA and will be skipped in final calculation
 }
 \examples{
 

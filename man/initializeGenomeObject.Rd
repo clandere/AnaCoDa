@@ -4,9 +4,9 @@
 \alias{initializeGenomeObject}
 \title{Genome Initialization}
 \usage{
-initializeGenomeObject(file, genome = NULL, observed.expression.file = NULL,
-  fasta = TRUE, simulated = FALSE, match.expression.by.id = TRUE,
-  append = FALSE)
+initializeGenomeObject(file, genome = NULL,
+  observed.expression.file = NULL, fasta = TRUE, simulated = FALSE,
+  match.expression.by.id = TRUE, append = FALSE)
 }
 \arguments{
 \item{file}{A file of coding sequences in fasta or RFPData format}

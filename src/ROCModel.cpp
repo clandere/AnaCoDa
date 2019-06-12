@@ -690,6 +690,9 @@ void ROCModel::simulateGenome(Genome &genome)
 			std::string codon = geneSeq.substr((position * 3), 3);
 			std::string aa = SequenceSummary::codonToAA(codon);
 
+			if (aa == "#")
+				continue;
+
 			if (aa == "X") {
 				if (position < (geneSeq.size() / 3) - 1) my_print("Warning: Internal stop codon found in gene % at position %. Ignoring and moving on.\n", gene.getId(), position);
 				continue;

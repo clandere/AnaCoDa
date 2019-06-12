@@ -4,8 +4,8 @@
 \alias{initializeCovarianceMatrices}
 \title{Initialize Covariance Matrices}
 \usage{
-initializeCovarianceMatrices(parameter, genome, numMixtures, geneAssignment,
-  init.csp.variance = 0.0025)
+initializeCovarianceMatrices(parameter, genome, numMixtures,
+  geneAssignment, init.csp.variance = 0.0025)
 }
 \arguments{
 \item{parameter}{A Parameter object that corresponds to one of the model types. 

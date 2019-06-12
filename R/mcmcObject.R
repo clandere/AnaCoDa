@@ -120,7 +120,7 @@ initializeMCMCObject <- function(samples, thinning=1, adaptive.width=100,
 #' genome <- initializeGenomeObject(file = genome_file)
 #' sphi_init <- c(1,1)
 #' numMixtures <- 2
-#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
 #' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
 #'                                        num.mixtures = numMixtures, 
 #'                                        gene.assignment = geneAssignment, 
@@ -139,7 +139,7 @@ initializeMCMCObject <- function(samples, thinning=1, adaptive.width=100,
 #' }
 #' 
 runMCMC <- function(mcmc, genome, model, ncores = 1, divergence.iteration = 0){
-  if(class(mcmc) != "Rcpp_MCMCAlgorithm") stop("mcmc is not of class Rcpp_Algorithm")
+  if(class(mcmc) != "Rcpp_MCMCAlgorithm") stop("mcmc is not of class Rcpp_MCMCAlgorithm")
   
   if (ncores < 1 || !all(ncores == as.integer(ncores))) {
     stop("ncores must be a positive integer\n")
@@ -192,7 +192,7 @@ runMCMC <- function(mcmc, genome, model, ncores = 1, divergence.iteration = 0){
 #'                    write.multiple = FALSE)
 #'            
 setRestartSettings <- function(mcmc, filename, samples, write.multiple=TRUE){
-  if(class(mcmc) != "Rcpp_MCMCAlgorithm") stop("mcmc is not of class Rcpp_Algorithm")
+  if(class(mcmc) != "Rcpp_MCMCAlgorithm") stop("mcmc is not of class Rcpp_MCMCAlgorithm")
   mcmc$setRestartFileSettings(filename, samples, write.multiple)
 }
 
@@ -201,22 +201,25 @@ setRestartSettings <- function(mcmc, filename, samples, write.multiple=TRUE){
 #' 
 #' @param object an object of either class Trace or MCMC
 #' 
-#' @param samples number of samples at the end of the trace used to determine convergence (< length of trace)
+#' @param samples number of samples at the end of the trace used to determine convergence (< length of trace). 
+#' Will use as starting point of convergence test. If the MCMC trace
+#' is of length x, then starting point for convergence test will be x - samples.
 #' 
-#' @param frac1 fraction to use from beginning of chain
+#' @param frac1 fraction to use from beginning of samples
 #' 
-#' @param frac2 fraction to use from end of chain
+#' @param frac2 fraction to use from end of samples
 #' 
-#' @param thin the thinning interval between consecutive observations
+#' @param thin the thinning interval between consecutive observations, which is used in creating a coda::mcmc object (according to the Coda documentation, users should specify if a MCMC chain has already been thinned using a the thin parameter). This does not further thin the data.
 #' 
 #' @param plot (logical) plot result instead of returning an object
 #' 
-#' @param what Character describing which trace should be tested for convergence (only for Trace object). Valid options are
-#' Mutation, Selection, MixtureProbability, Sphi, Mphi, ExpectedPhi, or Expression
+#' @param what (for Trace Object only) which parameter to calculate convergence.test -- current options are Selection, Mutation, MixtureProbability, Sphi, Mphi, ExpectedPhi, and AcceptanceCSP
 #' 
-#' @param mixture Integer determining for which mixture disribution the convergence test should be applied (only for trace object).
+#' @param mixture (for Trace Object only) mixture for which to calculate convergence.test
 #' 
-#' @return geweke score object
+#' @details  Be aware that convergence.test for Trace objects works primarily for Trace objects from the ROC parameter class. Future updates will adapt this function to work for parameters from other models and expression traces
+#' 
+#' @return Geweke score object evaluating whether means of two fractions (frac1 and frac2) differ.  Convergence occurs when they don't differ significantly, i.e. pnorm(abs(convergence.test(mcmcObj)$a, ,lower.tail=FALSE)*2 > 0.05
 #' 
 #' @examples 
 #' 
@@ -227,7 +230,7 @@ setRestartSettings <- function(mcmc, filename, samples, write.multiple=TRUE){
 #' genome <- initializeGenomeObject(file = genome_file)
 #' sphi_init <- c(1,1)
 #' numMixtures <- 2
-#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
 #' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
 #'                                        num.mixtures = numMixtures, 
 #'                                        gene.assignment = geneAssignment, 
@@ -247,22 +250,21 @@ setRestartSettings <- function(mcmc, filename, samples, write.multiple=TRUE){
 #' 
 #' trace <- getTrace(parameter)
 #' # check if Mutation trace has converged
-#' convergence.test(mcmc, samples = 500, plot = TRUE, what = "Mutation")
+#' convergence.test(object = trace, samples = 500, plot = TRUE, what = "Mutation")
 #' # check if Sphi trace has converged
-#' convergence.test(mcmc, samples = 500, plot = TRUE, what = "Sphi")
+#' convergence.test(object = trace, samples = 500, plot = TRUE, what = "Sphi")
 #' # check if ExpectedPhi trace has converged
-#' convergence.test(mcmc, samples = 500, plot = TRUE, what = "ExpectedPhi")
+#' convergence.test(object = trace, samples = 500, plot = TRUE, what = "ExpectedPhi")
 #' }
 convergence.test <- function(object, samples = 10, frac1 = 0.1, frac2 = 0.5, 
                     thin = 1, plot = FALSE, what = "Mutation", mixture = 1){
   UseMethod("convergence.test", object)
 }
 
-
 convergence.test.Rcpp_MCMCAlgorithm <- function(object, samples = 10, frac1 = 0.1, 
                                        frac2 = 0.5, thin = 1, plot = FALSE, what = "Mutation", mixture = 1){
   # TODO: extend to work with multiple chains once we have that capability.
-  
+  trace <- object$getLogPosteriorTrace()
   loglik.trace <- object$getLogPosteriorTrace()
   trace.length <- length(loglik.trace)
   start <- max(1, trace.length - samples)
@@ -297,7 +299,7 @@ convergence.test.Rcpp_MCMCAlgorithm <- function(object, samples = 10, frac1 = 0.
 #' genome <- initializeGenomeObject(file = genome_file)
 #' sphi_init <- c(1,1)
 #' numMixtures <- 2
-#' geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+#' geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
 #' parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
 #'                                        num.mixtures = numMixtures, 
 #'                                        gene.assignment = geneAssignment, 

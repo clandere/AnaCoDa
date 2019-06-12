@@ -537,17 +537,15 @@ void PANSEParameter::updateCodonSpecificParameter(std::string grouping)
  */
 void PANSEParameter::adaptCodonSpecificParameterProposalWidth(unsigned adaptationWidth, unsigned lastIteration, bool adapt)
 {
-	my_print("acceptance rate for codon:\n");
 	for (unsigned i = 0; i < groupList.size(); i++)
 	{
-		my_print("%\t", groupList[i]);
+
 
 		unsigned codonIndex = SequenceSummary::codonToIndex(groupList[i]);
 		double acceptanceLevel = (double)numAcceptForCodonSpecificParameters[codonIndex] / (double)adaptationWidth;
 		traces.updateCodonSpecificAcceptanceRateTrace(codonIndex, acceptanceLevel);
 		if (adapt)
 		{
-			my_print("% with std csp = %\n", acceptanceLevel, std_csp[i]);
 			if (acceptanceLevel < 0.2)
 				std_csp[i] *= 0.8;
 			if (acceptanceLevel > 0.3)
@@ -555,7 +553,6 @@ void PANSEParameter::adaptCodonSpecificParameterProposalWidth(unsigned adaptatio
 		}
 		numAcceptForCodonSpecificParameters[codonIndex] = 0u;
 	}
-	my_print("\n");
 }
 
 

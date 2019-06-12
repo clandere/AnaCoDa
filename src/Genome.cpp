@@ -497,25 +497,20 @@ void Genome::writeRFPData(std::string filename, bool simulated)
 			{
                 unsigned position = 1u;
 				Gene *currentGene = &simulatedGenes[geneIndex];
-
-				for (unsigned codonIndex = 0u; codonIndex < 64; codonIndex++)
+                SequenceSummary *sequenceSummary = currentGene->getSequenceSummary();
+                std::vector <unsigned> positions = sequenceSummary->getPositionCodonID();
+				for (unsigned positionIndex = 0u; positionIndex < positions.size(); positionIndex++)
 				{
-                    SequenceSummary *sequenceSummary = currentGene->getSequenceSummary();
-					unsigned codonCount = sequenceSummary->getCodonCountForCodon(codonIndex);
+					unsigned codonID = positions[positionIndex];
+                    my_printError("%\n",codonID);
+    				std::string codon = SequenceSummary::codonArray[codonID];
 
-                    for (unsigned positionIndex = 0u; positionIndex < codonCount; positionIndex++)
-                    {
-    					std::string codon = SequenceSummary::codonArray[codonIndex];
+    				Fout << currentGene->getId() << "," << positionIndex << "," << codon << ",";
 
-    					Fout << currentGene->getId() << "," << position << "," << codon << ",";
-
-                        unsigned rfpValue = 0u;
-                        if (positionIndex == 0)
-                            rfpValue = currentGene->geneData.getCodonSpecificSumRFPCount(codonIndex, 0);
-    					// Simulated sum RFP counts will only print one column! So, we default to column = 0.
-    					Fout << rfpValue << "\n";
-                        position++;
-                    }
+                    unsigned rfpValue = 0u;
+                    rfpValue = currentGene->geneData.getSingleRFPCount(position, 0);
+    				// Simulated sum RFP counts will only print one column! So, we default to column = 0.
+    				Fout << rfpValue << "\n";
 				}
 			}
 		}
@@ -666,6 +661,11 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
 
 				while (std::getline(input, tmp))
 				{
+				
+			#ifndef STANDALONE
+            Rcpp::checkUserInterrupt();
+            #endif
+            
 					if (geneIndex >= genes.size())
 					{
 						my_printError("ERROR: GeneIndex exceeds the number of genes in the genome. Exiting function.");

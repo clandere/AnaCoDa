@@ -273,10 +273,6 @@ double MCMCAlgorithm::acceptRejectSynthesisRateLevelForAllGenes(Genome& genome, 
 		}
 		logPosterior += std::log(currGeneLogPost) + maxValue2;
 
-
-		if (std::isinf(logPosterior))
-            my_print("\tInfinity reached (Gene: %)\n", i);
-
 		// Get category in which the gene is placed in.
 		// If we use multiple sequence observation (like different mutants),
 		// randMultinom needs a parameter N to place N observations in numMixture buckets
@@ -337,11 +333,6 @@ void MCMCAlgorithm::acceptRejectCodonSpecificParameter(Genome& genome, Model& mo
 		model.calculateLogLikelihoodRatioPerGroupingPerCategory(grouping, genome, acceptanceRatioForAllMixtures);
 		//logPosterior += model.calculateAllPriors();
         double threshold = -Parameter::randExp(1);
-        /*if ((iteration % thinning) == 0)
-        {
-            my_print("The returned logLikelihood Ratio is: %\n", acceptanceRatioForAllMixtures[0]);
-            my_print("The returned Threshhold is: %\n", threshold);
-        }*/
 
 		if (threshold < acceptanceRatioForAllMixtures[0] && std::isfinite(acceptanceRatioForAllMixtures[0]))
 		{
@@ -414,7 +405,7 @@ void MCMCAlgorithm::run(Genome& genome, Model& model, unsigned numCores, unsigne
 //#ifndef __APPLE__
 	omp_set_num_threads(numCores);
 #endif
-
+	// Replace with reportSample? 
 	unsigned reportStep = (100u < thinning) ? thinning : 100u;
 
 	// Allows to diverge from initial conditions (divergenceIterations controls the divergence).
@@ -448,7 +439,7 @@ void MCMCAlgorithm::run(Genome& genome, Model& model, unsigned numCores, unsigne
 		{
 			if ((iteration) % fileWriteInterval == 0u)
 			{
-				my_print("Writing restart file!\n");
+				my_print("Begin saving restart file(s) at sample (iteration): % (%)\n",  (iteration / thinning), iteration);
 
 				if (multipleFiles)
 				{

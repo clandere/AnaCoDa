@@ -4,8 +4,9 @@
 \alias{getCSPEstimates}
 \title{Return Codon Specific Paramters (or write to csv) estimates as data.frame}
 \usage{
-getCSPEstimates(parameter, filename = NULL, mixture = 1, samples = 10,
-  relative.to.optimal.codon = T, report.original.ref = T)
+getCSPEstimates(parameter, filename = NULL, mixture = 1,
+  samples = 10, relative.to.optimal.codon = T,
+  report.original.ref = T)
 }
 \arguments{
 \item{parameter}{parameter an object created by \code{initializeParameterObject}.}
@@ -35,7 +36,7 @@ genome_file <- system.file("extdata", "genome.fasta", package = "AnaCoDa")
 genome <- initializeGenomeObject(file = genome_file)
 sphi_init <- c(1,1)
 numMixtures <- 2
-geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
 parameter <- initializeParameterObject(genome = genome, sphi = sphi_init, 
                                        num.mixtures = numMixtures, 
                                        gene.assignment = geneAssignment, 

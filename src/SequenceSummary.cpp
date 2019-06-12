@@ -275,7 +275,9 @@ void SequenceSummary::setSumRFPCount(std::array <unsigned, 64> arg, unsigned RFP
  */
 unsigned SequenceSummary::getCodonSpecificSumRFPCount(std::string codon, unsigned RFPCountColumn)
 {
-	if (sumRFPCount.size() < RFPCountColumn + 1) initSumRFPCount(RFPCountColumn + 1);
+	if (sumRFPCount.size() < RFPCountColumn + 1){
+	    initSumRFPCount(RFPCountColumn + 1);
+	}
 	return sumRFPCount[RFPCountColumn][codonToIndex(codon)];
 }
 
@@ -287,7 +289,9 @@ unsigned SequenceSummary::getCodonSpecificSumRFPCount(std::string codon, unsigne
  */
 unsigned SequenceSummary::getCodonSpecificSumRFPCount(unsigned codonIndex, unsigned RFPCountColumn)
 {
-	if (sumRFPCount.size() < RFPCountColumn + 1) initSumRFPCount(RFPCountColumn + 1);
+	if (sumRFPCount.size() < RFPCountColumn + 1){
+		initSumRFPCount(RFPCountColumn + 1);
+	}
     return sumRFPCount[RFPCountColumn][codonIndex];
 }
 
@@ -706,6 +710,7 @@ std::string SequenceSummary::codonToAA(std::string& codon)
 		//Stop
 	else if (!codon.compare("TAA") || !codon.compare("UAA") || !codon.compare("TAG") || !codon.compare("UAG") ||
 			 !codon.compare("TGA") || !codon.compare("UGA")) aa = "X";
+
 
 	return aa;
 }

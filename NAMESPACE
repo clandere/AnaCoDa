@@ -3,6 +3,8 @@ useDynLib(AnaCoDa, .registration = TRUE)
 
 #imports
 importFrom(methods, new)
+importFrom(stats, cov, dlnorm)
+importFrom(mvtnorm, dmvnorm)
 importFrom(Rcpp, evalCpp)
 
 importFrom(graphics, abline, axis, box, grid, hist,
@@ -24,6 +26,7 @@ S3method(convergence.test, Rcpp_Trace)
 
 S3method(plot, Rcpp_ROCParameter)
 S3method(plot, Rcpp_FONSEParameter)
+S3method(plot, Rcpp_PAParameter)
 S3method(plot, Rcpp_ROCModel)
 S3method(plot, Rcpp_FONSEModel)
 S3method(plot, Rcpp_MCMCAlgorithm)
@@ -46,6 +49,7 @@ export(
 "getTrace",
 "getSelectionCoefficients",
 "geomMean",
+"calculateMarginalLogLikelihood",
 
 ## Model object
 "initializeModelObject",

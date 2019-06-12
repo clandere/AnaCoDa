@@ -4,8 +4,9 @@
 \alias{initializeParameterObject}
 \title{Initialize Parameter}
 \usage{
-initializeParameterObject(genome = NULL, sphi = NULL, num.mixtures = 1,
-  gene.assignment = NULL, initial.expression.values = NULL, model = "ROC",
+initializeParameterObject(genome = NULL, sphi = NULL,
+  num.mixtures = 1, gene.assignment = NULL,
+  initial.expression.values = NULL, model = "ROC",
   split.serine = TRUE, mixture.definition = "allUnique",
   mixture.definition.matrix = NULL, init.with.restart.file = NULL,
   mutation.prior.sd = 0.35, init.csp.variance = 0.0025,
@@ -117,7 +118,7 @@ parameter <- initializeParameterObject(init.with.restart.file = restart_file)
 
 ## initialize a parameter object with a custon mixture definition matrix
 def.matrix <- matrix(c(1,1,1,2), ncol=2)
-geneAssignment <- sample(1:2, length(genome), replace = TRUE) # random assignment to mixtures
+geneAssignment <- c(rep(1,floor(length(genome)/2)),rep(2,ceiling(length(genome)/2)))
 parameter <- initializeParameterObject(genome = genome, sphi = c(0.5, 2), num.mixtures = 2,
                                        gene.assignment = geneAssignment,
                                        mixture.definition.matrix = def.matrix)

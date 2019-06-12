@@ -513,6 +513,10 @@ void PAParameter::updateCodonSpecificParameter(std::string grouping)
 {
 	unsigned i = SequenceSummary::codonToIndex(grouping);
 	numAcceptForCodonSpecificParameters[i]++;
+	for(unsigned j = 0; j < getNumMixtureElements(); j++){
+	    currentCodonSpecificParameter[alp][j][i] = proposedCodonSpecificParameter[alp][j][i];
+	    currentCodonSpecificParameter[lmPri][j][i] = proposedCodonSpecificParameter[lmPri][j][i];
+	}
 }
 
 
@@ -529,18 +533,14 @@ void PAParameter::updateCodonSpecificParameter(std::string grouping)
  */
 void PAParameter::adaptCodonSpecificParameterProposalWidth(unsigned adaptationWidth, unsigned lastIteration, bool adapt)
 {
-	my_print("acceptance rate for codon:\n");
-    adapt = true;
 	for (unsigned i = 0; i < groupList.size(); i++)
 	{
-		my_print("%\t", groupList[i]);
-
-		unsigned codonIndex = SequenceSummary::codonToIndex(groupList[i]);
+        unsigned codonIndex = SequenceSummary::codonToIndex(groupList[i]);
 		double acceptanceLevel = (double)numAcceptForCodonSpecificParameters[codonIndex] / (double)adaptationWidth;
+
 		traces.updateCodonSpecificAcceptanceRateTrace(codonIndex, acceptanceLevel);
 		if (adapt)
 		{
-			my_print("% with std csp = %\n", acceptanceLevel, std_csp[i]);
 			if (acceptanceLevel < 0.2)
 				std_csp[i] *= 0.8;
 			if (acceptanceLevel > 0.3)
@@ -548,7 +548,6 @@ void PAParameter::adaptCodonSpecificParameterProposalWidth(unsigned adaptationWi
 		}
 		numAcceptForCodonSpecificParameters[codonIndex] = 0u;
 	}
-	my_print("\n");
 }
 
 

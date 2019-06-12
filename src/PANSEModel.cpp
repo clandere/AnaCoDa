@@ -12,8 +12,9 @@ using namespace Rcpp;
 
 PANSEModel::PANSEModel(unsigned _RFPCountColumn) : Model()
 {
-    parameter = 0;
-    RFPCountColumn = _RFPCountColumn;
+    parameter = NULL;
+    RFPCountColumn = _RFPCountColumn - 1;
+    my_print("Building PANSEModel with RFPCountColumn = %\n", RFPCountColumn);
     //ctor
 }
 
@@ -46,10 +47,6 @@ double PANSEModel::calculateLogLikelihoodPerCodonPerGene(double currAlpha, doubl
 
 
     double rv = term1 + term2 + term3;
-
-    if (std::isnan(rv)){
-        my_print("term1 = %\nterm2 = %\nterm3 = %\nalpha = %\nlambda = %\nphi = %\n", term1, term2, term3, currAlpha, currLambdaPrime, phiValue);
-    }
 
     return rv;
 }
@@ -108,8 +105,7 @@ void PANSEModel::calculateLogLikelihoodRatioPerGene(Gene& gene, unsigned geneInd
         double currAlpha = getParameterForCategory(alphaCategory, PANSEParameter::alp, codon, false);
         double currLambdaPrime = getParameterForCategory(lambdaPrimeCategory, PANSEParameter::lmPri, codon, false);
         //Should be rfp value at position not all of codon
-        unsigned currRFPObserved = gene.geneData.getCodonSpecificSumRFPCount(index);
-
+        unsigned currRFPObserved = gene.geneData.getSingleRFPCount(index, 0);
         unsigned currNumCodonsInMRNA = gene.geneData.getCodonCountForCodon(index);
         //This line will never execute
         if (currNumCodonsInMRNA == 0) continue;
@@ -117,14 +113,8 @@ void PANSEModel::calculateLogLikelihoodRatioPerGene(Gene& gene, unsigned geneInd
         //Have to redo the math becuas rfp observed has changed
         logLikelihood += calculateLogLikelihoodPerCodonPerGene(currAlpha, currLambdaPrime, currRFPObserved, currNumCodonsInMRNA, phiValue);
         logLikelihood_proposed += calculateLogLikelihoodPerCodonPerGene(currAlpha, currLambdaPrime, currRFPObserved, currNumCodonsInMRNA, phiValue_proposed);
+    }
 
-        if(std::isnan(logLikelihood)){
-            my_print("real is nan\n");
-        }
-        if(std::isnan(logLikelihood_proposed)){
-            my_print("proposed is nan\n");
-        }
-        }
     //Double check math here
     double stdDevSynthesisRate = parameter->getStdDevSynthesisRate(lambdaPrimeCategory, false);
     double logPhiProbability = Parameter::densityLogNorm(phiValue, (-(stdDevSynthesisRate * stdDevSynthesisRate) / 2), stdDevSynthesisRate, true);
@@ -165,7 +155,7 @@ void PANSEModel::calculateLogLikelihoodRatioPerGroupingPerCategory(std::string g
         unsigned synthesisRateCategory = parameter->getSynthesisRateCategory(mixtureElement);
         // get non codon specific values, calculate likelihood conditional on these
         double phiValue = parameter->getSynthesisRate(i, synthesisRateCategory, false);
-        unsigned currRFPObserved = gene->geneData.getCodonSpecificSumRFPCount(index, RFPCountColumn);
+        unsigned currRFPObserved = gene->geneData.getCodonSpecificSumRFPCount(index, /*RFPCountColumn*/ 0);
         unsigned currNumCodonsInMRNA = gene->geneData.getCodonCountForCodon(index);
         if (currNumCodonsInMRNA == 0) continue;
 
@@ -576,48 +566,45 @@ void PANSEModel::updateHyperParameter(unsigned hp)
 //TODO: Account for position
 void PANSEModel::simulateGenome(Genome &genome)
 {
-    /*for (unsigned geneIndex = 0u; geneIndex < genome.getGenomeSize(); geneIndex++)
+    float sigma = 1;
+    for (unsigned geneIndex = 0u; geneIndex < genome.getGenomeSize(); geneIndex++)
     {
         unsigned mixtureElement = getMixtureAssignment(geneIndex);
         Gene gene = genome.getGene(geneIndex);
         double phi = parameter->getSynthesisRate(geneIndex, mixtureElement, false);
+        SequenceSummary sequence = gene.geneData;
         Gene tmpGene = gene;
-        for (unsigned codonIndex = 0u; codonIndex < 61; codonIndex++)
+        std::vector <unsigned> positions = sequence.getPositionCodonID();
+        std::vector <int> rfpCount;
+        if(geneIndex == 0){
+            for (unsigned pos : positions) my_printError("the pos is %\n", pos);
+        }
+        for (unsigned codonID : positions)
         {
-            std::string codon = SequenceSummary::codonArray[codonIndex];
+            std::string codon = SequenceSummary::codonArray[codonID];
             unsigned alphaCat = parameter->getMutationCategory(mixtureElement);
             unsigned lambdaPrimeCat = parameter->getSelectionCategory(mixtureElement);
 
             double alpha = getParameterForCategory(alphaCat, PANSEParameter::alp, codon, false);
             double lambdaPrime = getParameterForCategory(lambdaPrimeCat, PANSEParameter::lmPri, codon, false);
 
-            double alphaPrime = alpha * gene.geneData.getCodonCountForCodon(codon);
-
 #ifndef STANDALONE
             RNGScope scope;
             NumericVector xx(1);
-            xx = rgamma(1, alphaPrime, 1.0/lambdaPrime);
-            xx = rpois(1, xx[0] * phi);
-            tmpGene.geneData.setCodonSpecificSumRFPCount(codonIndex, xx[0], RFPCountColumn);
+            xx = rgamma(1, alpha, 1.0/lambdaPrime);
+            xx = rpois(1, xx[0] * phi * sigma);
+            rfpCount.push_back(xx[0]);
 #else
             std::gamma_distribution<double> GDistribution(alphaPrime, 1.0/lambdaPrime);
             double tmp = GDistribution(Parameter::generator);
-            std::poisson_distribution<unsigned> PDistribution(phi * tmp);
+            std::poisson_distribution<unsigned> PDistribution(phi * tmp * sigma);
             unsigned simulatedValue = PDistribution(Parameter::generator);
-            tmpGene.geneData.setCodonSpecificSumRFPCount(codonIndex, simulatedValue, RFPCountColumn);
+            rfpCount.push_back(simulatedValue);
 #endif
         }
+        tmpGene.geneData.setRFPCount(rfpCount, RFPCountColumn);
         genome.addGene(tmpGene, true);
-    }*/
-    for (unsigned geneIndex = 0u; geneIndex < genome.getGenomeSize(); geneIndex++)
-    {
-        /*unsigned mixtureElement = getMixtureAssignment(geneIndex);
-        Gene gene = genome.getGene(geneIndex);
-        double phi = parameter->getSynthesisRate(geneIndex, mixtureElement, false);
-        Gene tmpGene = gene;
-        Need to reimplement*/
     }
-
 }
 
 
