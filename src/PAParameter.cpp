@@ -492,7 +492,7 @@ unsigned numLambdaPrime = (unsigned)currentCodonSpecificParameter[lmPri][0].size
 	{
 		for (unsigned j = 0; j < numLambdaPrime; j++)
 		{
-			proposedCodonSpecificP-0arameter[lmPri][i][j] = std::exp( randNorm( std::log(currentCodonSpecificParameter[lmPri][i][j]) , std_csp[j]) );
+			proposedCodonSpecificParameter[lmPri][i][j] = std::exp( randNorm( std::log(currentCodonSpecificParameter[lmPri][i][j]) , std_csp[j]) );
 		}
 	}/*
     if (std::isnan(l) || std::isnan(a)){
