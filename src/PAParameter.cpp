@@ -477,14 +477,14 @@ double PAParameter::getCurrentCodonSpecificProposalWidth(unsigned index)
 */
 void PAParameter::proposeCodonSpecificParameter()
 {
-	unsigned numAlpha = (unsigned)currentCodonSpecificParameter[alp][0].size();
-	unsigned numLambdaPrime = (unsigned)currentCodonSpecificParameter[lmPri][0].size();
+unsigned numAlpha = (unsigned)currentCodonSpecificParameter[alp][0].size();
+unsigned numLambdaPrime = (unsigned)currentCodonSpecificParameter[lmPri][0].size();
 
 	for (unsigned i = 0; i < numMutationCategories; i++)
 	{
 		for (unsigned j = 0; j < numAlpha; j++)
 		{
-			double a = proposedCodonSpecificParameter[alp][i][j] = std::exp( randNorm( std::log(currentCodonSpecificParameter[alp][i][j]) , std_csp[j]) );
+			proposedCodonSpecificParameter[alp][i][j] = std::exp( randNorm( std::log(currentCodonSpecificParameter[alp][i][j]) , std_csp[j]) );
 		}
 	}
 
@@ -492,7 +492,7 @@ void PAParameter::proposeCodonSpecificParameter()
 	{
 		for (unsigned j = 0; j < numLambdaPrime; j++)
 		{
-			double l = proposedCodonSpecificParameter[lmPri][i][j] = std::exp( randNorm( std::log(currentCodonSpecificParameter[lmPri][i][j]) , std_csp[j]) );
+			proposedCodonSpecificP-0arameter[lmPri][i][j] = std::exp( randNorm( std::log(currentCodonSpecificParameter[lmPri][i][j]) , std_csp[j]) );
 		}
 	}/*
     if (std::isnan(l) || std::isnan(a)){
@@ -502,7 +502,6 @@ void PAParameter::proposeCodonSpecificParameter()
         \n", isAlpha);
     }*/
 }
-
 
 /* updateCodonSpecificParameter (NOT EXPOSED)
  * Arguments: string representation of a grouping (amino acid, codon...)
