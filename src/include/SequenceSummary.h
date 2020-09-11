@@ -26,7 +26,7 @@ class SequenceSummary
         // outer index is the codonID, size of 64 for number of codons
         // inner index is the position of each occurrence of the codonID specified.
 
-        std::vector <std::vector <int>> RFPCount;
+        std::vector <std::vector <unsigned>> RFPCount;
 		// outer index is the RFPCount for the category specified via index
 		// inner index is number of position
 
@@ -71,9 +71,10 @@ class SequenceSummary
 		//RFP Functions (for PA and PANSE models) (All tested):
         //RFP Count has an inner vector indexed by position Sum RFP Count has an inner index of Codon Type
 		void initRFPCount(unsigned numCategories);
-		std::vector <int> getRFPCount(unsigned RFPCountColumn = 0u);
-		int getSingleRFPCount(unsigned position, unsigned RFPCountColumn = 0u);
-		void setRFPCount(std::vector <int> arg, unsigned RFPCountColumn = 0u);
+		std::vector <unsigned> getRFPCount(unsigned RFPCountColumn = 0u);
+		unsigned getSingleRFPCount(unsigned position, unsigned RFPCountColumn = 0u);
+		void setRFPCount(std::vector <unsigned> arg, unsigned RFPCountColumn = 0u);
+		unsigned getSumTotalRFPCount(unsigned RFPCountColumn = 0u);
 
         void initSumRFPCount(unsigned numCategories);
 		std::array <unsigned, 64> getSumRFPCount(unsigned RFPCountColumn = 0u);

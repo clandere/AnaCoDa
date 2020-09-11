@@ -33,11 +33,11 @@ class Parameter {
 		void quickSortPair(double a[], int b[], int first, int last);
 		static int pivotPair(double a[], int b[], int first, int last);
 
-		unsigned adaptiveStepPrev;
-		unsigned adaptiveStepCurr;
-
+		
 
 		std::vector<double> codonSpecificPrior;
+
+		bool fix_stdDevSynthesis = false;
 	public:
 
 		static const std::string allUnique;
@@ -49,6 +49,7 @@ class Parameter {
 		static const unsigned dOmega;
 		static const unsigned alp;
 		static const unsigned lmPri;
+		static const unsigned nse;
 
 #ifdef STANDALONE
 		static std::default_random_engine generator; // static to make sure that the same generator is used during the runtime.
@@ -61,6 +62,7 @@ class Parameter {
 		Parameter& operator=(const Parameter& rhs);
 		virtual ~Parameter();
 
+		std::vector <std::string> CSPToUpdate;
 
 		//Initialization and Restart Functions: TODO: test
 		void initParameterSet(std::vector<double> stdDevSynthesisRate, unsigned _numMixtures,
@@ -108,6 +110,7 @@ class Parameter {
 		//stdDevSynthesisRate Functions: Mostly tested, see comments.
 		double getStdDevSynthesisRate(unsigned selectionCategory, bool proposed = false);
 		virtual void proposeStdDevSynthesisRate(); //TODO: test
+		void fixStdDevSynthesis();
 		void setStdDevSynthesisRate(double stdDevSynthesisRate, unsigned selectionCategory);
 		double getCurrentStdDevSynthesisRateProposalWidth();
 		unsigned getNumAcceptForStdDevSynthesisRate(); //Only for unit testing.
@@ -126,6 +129,30 @@ class Parameter {
 		unsigned getNumAcceptForSynthesisRate(unsigned expressionCategory, unsigned geneIndex); //Only for unit testing
 
 
+		//Noise Functions...updating AnaCoDa to allow all models (instead of just ROC) to use empirical gene expression values to inform estimation of \phi
+
+		double getObservedSynthesisNoise(unsigned index);
+		void setObservedSynthesisNoise(unsigned index, double se);
+
+		//noiseOffset Functions:
+		double getNoiseOffset(unsigned index, bool proposed = false);
+		double getCurrentNoiseOffsetProposalWidth(unsigned index);
+		void proposeNoiseOffset();
+		void setNoiseOffset(unsigned index, double _NoiseOffset);
+		void updateNoiseOffset(unsigned index);
+
+		void setNumObservedPhiSets(unsigned _phiGroupings);
+
+		// noise Functions:
+		void setInitialValuesForSepsilon(std::vector<double> seps);
+
+		//Posterior, Variance, and Estimates Functions for noise:
+		double getNoiseOffsetPosteriorMean(unsigned index, unsigned samples);
+		double getNoiseOffsetVariance(unsigned index, unsigned samples, bool unbiased = true);
+
+		//Adaptive Width Functions:
+		void adaptNoiseOffsetProposalWidth(unsigned adaptationWidth, bool adapt);
+
 		//Iteration Functions: All tested
 		unsigned getLastIteration();
 		void setLastIteration(unsigned iteration);
@@ -134,6 +161,8 @@ class Parameter {
 		//Trace Functions: TODO: test
 		Trace& getTraceObject();
 		void setTraceObject(Trace _trace);
+		void updateObservedSynthesisNoiseTraces(unsigned sample);
+		void updateNoiseOffsetTraces(unsigned sample);
 		void updateStdDevSynthesisRateTrace(unsigned sample);
 		void updateSynthesisRateTrace(unsigned sample, unsigned geneIndex);
 		void updateMixtureAssignmentTrace(unsigned sample, unsigned geneIndex);
@@ -151,14 +180,14 @@ class Parameter {
 		double getSynthesisRatePosteriorMean(unsigned samples, unsigned geneIndex, bool log_scale=false);
 
 		double getCodonSpecificPosteriorMean(unsigned mixtureElement, unsigned samples, std::string &codon,
-			unsigned paramType, bool withoutReference = true, bool byGene = false);
+			unsigned paramType, bool withoutReference = true, bool byGene = false, bool log_scale = false);
 		double getStdDevSynthesisRateVariance(unsigned samples, unsigned mixture, bool unbiased);
 		double getSynthesisRateVariance(unsigned samples, unsigned geneIndex,
 			bool unbiased = true, bool log_scale = false);
 		double getCodonSpecificVariance(unsigned mixtureElement, unsigned samples, std::string &codon,
-			unsigned paramType, bool unbiased, bool withoutReference = true);
+			unsigned paramType, bool unbiased, bool withoutReference = true, bool log_scale = false);
 	        std::vector<double> getCodonSpecificQuantile(unsigned mixtureElement, unsigned samples, std::string &codon,
-			unsigned paramType, std::vector<double> probs, bool withoutReference);
+			unsigned paramType, std::vector<double> probs, bool withoutReference, bool log_scale = false);
 		std::vector<double> getExpressionQuantile(unsigned samples, unsigned geneIndex,
 			std::vector<double> probs, bool log_scale = false);
 		std::vector<double> calculateQuantile(std::vector<float> &parameterTrace, unsigned samples, std::vector<double> probs, bool log_scale=false);
@@ -172,12 +201,11 @@ class Parameter {
 		unsigned getNumObservedPhiSets();
 		void setMixtureAssignment(unsigned gene, unsigned value);
 		unsigned getMixtureAssignment(unsigned gene);
-		virtual void setNumObservedPhiSets(unsigned _phiGroupings);
 		virtual std::vector <std::vector <double> > calculateSelectionCoefficients(unsigned sample); //TODO: test
 
 
 		//Static Functions: TODO: test
-		static double calculateSCUO(Gene& gene, unsigned maxAA);
+		static double calculateSCUO(Gene& gene);
 		static void drawIidRandomVector(unsigned draws, double mean, double sd, double (*proposal)(double a, double b),
 			double* randomNumbers);
 		static void drawIidRandomVector(unsigned draws, double r, double (*proposal)(double r), double* randomNumber);
@@ -236,11 +264,11 @@ class Parameter {
 		std::vector<double> getEstimatedMixtureAssignmentProbabilitiesForGene(unsigned samples, unsigned geneIndex);
 
 		double getCodonSpecificPosteriorMeanForCodon(unsigned mixtureElement, unsigned samples, std::string codon,
-			unsigned paramType, bool withoutReference);
+			unsigned paramType, bool withoutReference, bool log_scale = false);
 		double getCodonSpecificVarianceForCodon(unsigned mixtureElement, unsigned samples, std::string codon,
-			unsigned paramType, bool unbiased, bool withoutReference);
+			unsigned paramType, bool unbiased, bool withoutReference, bool log_scale = false);
         	std::vector<double> getCodonSpecificQuantileForCodon(unsigned mixtureElement, unsigned samples,
-        		std::string &codon, unsigned paramType, std::vector<double> probs, bool withoutReference);
+        		std::string &codon, unsigned paramType, std::vector<double> probs, bool withoutReference, bool log_scale = false);
 		std::vector<double> getExpressionQuantileForGene(unsigned samples,
 			unsigned geneIndex, std::vector<double> probs, bool log_scale);
 
@@ -259,6 +287,9 @@ class Parameter {
 	protected:
 		Trace traces;
 
+		unsigned adaptiveStepPrev;
+		unsigned adaptiveStepCurr;
+		
 		std::vector<CovarianceMatrix> covarianceMatrix;
 		std::vector<mixtureDefinition> categories;
 		std::vector<double> categoryProbabilities;
@@ -286,6 +317,13 @@ class Parameter {
 		std::vector<double> std_csp;
 
 
+		std::vector <double> observedSynthesisNoise;
+
+		std::vector <double> noiseOffset_proposed;
+		std::vector <double> noiseOffset; //A_Phi
+		std::vector <double> std_NoiseOffset;
+		std::vector <double> numAcceptForNoiseOffset;
+		
         //Unknown indexing hoping (mixture) then gene
 		std::vector<std::vector<double>> proposedSynthesisRateLevel;
 		std::vector<std::vector<double>> currentSynthesisRateLevel;

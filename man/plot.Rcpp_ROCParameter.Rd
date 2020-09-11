@@ -4,8 +4,14 @@
 \alias{plot.Rcpp_ROCParameter}
 \title{Plot Parameter}
 \usage{
-\method{plot}{Rcpp_ROCParameter}(x, what = "Mutation", samples = 100,
-  mixture.name = NULL, with.ci = TRUE, ...)
+\method{plot}{Rcpp_ROCParameter}(
+  x,
+  what = "Mutation",
+  samples = 100,
+  mixture.name = NULL,
+  with.ci = TRUE,
+  ...
+)
 }
 \arguments{
 \item{x}{A parameter object}

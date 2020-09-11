@@ -1,7 +1,7 @@
 #' Plot Model Object
 #' 
 #' @param x An Rcpp model object initialized with \code{initializeModelObject}.
-#' @param genome An Rcpp genome object initialized with \code{initializeGenomeObject}.#
+#' @param genome An Rcpp genome object initialized with \code{initializeGenomeObject}.
 #' @param samples The number of samples in the trace
 #' @param mixture The mixture for which to graph values.
 #' @param simulated A boolean value that determines whether to use the simulated genome.
@@ -20,6 +20,7 @@
 plot.Rcpp_ROCModel <- function(x, genome = NULL, samples = 100, mixture = 1, 
                                simulated = FALSE, ...)
 {
+  model <- x
   opar <- par(no.readonly = T) 
   
   input_list <- as.list(list(...))
@@ -42,7 +43,7 @@ plot.Rcpp_ROCModel <- function(x, genome = NULL, samples = 100, mixture = 1,
   text(0.5, 0.4, date(), cex = 0.6)
   
   num.genes <- length(genome)
-  parameter <- x$getParameter()
+  parameter <- model$getParameter()
 
   mixtureAssignment <- unlist(lapply(1:num.genes,  function(geneIndex){parameter$getEstimatedMixtureAssignmentForGene(samples, geneIndex)}))
   genes.in.mixture <- which(mixtureAssignment == mixture)
@@ -60,7 +61,8 @@ plot.Rcpp_ROCModel <- function(x, genome = NULL, samples = 100, mixture = 1,
   for(aa in names.aa)
   {
     if(aa == "M" || aa == "W" || aa == "X") next
-    xlimit <- plotSinglePanel(parameter, x, genome, expressionValues, samples, mixture, aa)
+    codon.probability <- calculateProbabilityVector(parameter,model,expressionValues,mixture,samples,aa,model.type="ROC")
+    xlimit <- plotSinglePanel(parameter, model, genome, expressionValues, samples, mixture, aa,codon.probability = codon.probability)
     box()
     main.aa <- aa #TODO map to three letter code
     text(mean(xlimit), 1, main.aa, cex = 1.5)
@@ -112,6 +114,8 @@ plot.Rcpp_ROCModel <- function(x, genome = NULL, samples = 100, mixture = 1,
 #'
 #' @param simulated A boolean value that determines whether to use the simulated genome.
 #'
+#' @param codon.window A boolean value that determines the codon window to use for calculating codon frequencies. If NULL (the default), use complete sequences.
+#'
 #' @param ... Optional, additional arguments.
 #' For this function, a possible title for the plot in the form of a list if set with "main".
 #'  
@@ -125,8 +129,9 @@ plot.Rcpp_ROCModel <- function(x, genome = NULL, samples = 100, mixture = 1,
 #' initialization of the Parameter object.
 #'
 plot.Rcpp_FONSEModel <- function(x, genome, samples = 100, mixture = 1, 
-                               simulated = FALSE, ...)
+                               simulated = FALSE, codon.window = NULL,...)
 {
+  model <- x
   opar <- par(no.readonly = T) 
   
   input_list <- as.list(list(...))
@@ -149,11 +154,12 @@ plot.Rcpp_FONSEModel <- function(x, genome, samples = 100, mixture = 1,
   text(0.5, 0.4, date(), cex = 0.6)
   
   num.genes <- length(genome)
-  parameter <- x$getParameter()
+  parameter <- model$getParameter()
   
   mixtureAssignment <- unlist(lapply(1:num.genes,  function(geneIndex){parameter$getEstimatedMixtureAssignmentForGene(samples, geneIndex)}))
   genes.in.mixture <- which(mixtureAssignment == mixture)
   expressionCategory <- parameter$getSynthesisRateCategoryForMixture(mixture)
+
   
   # need expression values to know range
   num.genes <- length(genes.in.mixture)
@@ -163,12 +169,33 @@ plot.Rcpp_FONSEModel <- function(x, genome, samples = 100, mixture = 1,
 
   expressionValues <- log10(expressionValues)
   genome <- genome$getGenomeForGeneIndices(genes.in.mixture, simulated)
-  
+  genes <- genome$getGenes(simulated)
+  genome$clear()
+  if (is.null(codon.window))
+  {
+    codon.window <- seq(1,100000)
+  } else if (length(codon.window) == 2)
+  {
+    codon.window <- seq(codon.window[1],codon.window[2])
+  }
+  for (i in 1:length(genes))
+  {
+    dna <- genes[[i]]$seq
+    start <- seq(1, nchar(dna), 3)
+    stop  <- pmin(start + 2, nchar(dna))
+    codons <- substring(dna,start,stop)
+    codons <- codons[codon.window]
+    codons <- codons[which(is.na(codons) == F)]
+    dna <- paste(codons,collapse='')
+    genes[[i]]$seq <- dna
+    genome$addGene(genes[[i]],simulated)
+  }
   names.aa <- aminoAcids()
   for(aa in names.aa)
   {
     if(aa == "M" || aa == "W" || aa == "X") next
-    xlimit <- plotSinglePanel(parameter, x, genome, expressionValues, samples, mixture, aa)
+    codon.probability <- calculateProbabilityVector(parameter,model,expressionValues,mixture,samples,aa,model.type="FONSE",codon.window = codon.window)
+    xlimit <- plotSinglePanel(parameter, model, genome, expressionValues, samples, mixture, aa,codon.probability = codon.probability)
     box()
     main.aa <- aa #TODO map to three letter code
     text(mean(xlimit), 1, main.aa, cex = 1.5)
@@ -208,8 +235,7 @@ plot.Rcpp_FONSEModel <- function(x, genome, samples = 100, mixture = 1,
   par(opar)
 }
 
-# NOT EXPOSED
-plotSinglePanel <- function(parameter, model, genome, expressionValues, samples, mixture, aa)
+calculateProbabilityVector <- function(parameter,model,expressionValues,mixture,samples,aa,model.type="ROC",codon.window = c(1,300))
 {
   codons <- AAToCodon(aa, T)
   
@@ -218,18 +244,60 @@ plotSinglePanel <- function(parameter, model, genome, expressionValues, samples,
   mutation <- vector("numeric", length(codons))
   for (i in 1:length(codons))
   {
-    selection[i] <- parameter$getCodonSpecificPosteriorMean(mixture, samples, codons[i], 1, T)
-    mutation[i] <- parameter$getCodonSpecificPosteriorMean(mixture, samples, codons[i], 0, T)
+    selection[i] <- parameter$getCodonSpecificPosteriorMean(mixture, samples, codons[i], 1, T,log_scale = F)
+    mutation[i] <- parameter$getCodonSpecificPosteriorMean(mixture, samples, codons[i], 0, T,log_scale = F)
   }
   
   # calculate codon probabilities with respect to phi
   expression.range <- range(expressionValues)
   phis <- seq(from = expression.range[1], to = expression.range[2], by = 0.01)
-  codonProbability <- lapply(10^phis,  
-                             function(phi){
-                               model$CalculateProbabilitiesForCodons(mutation, selection, phi)
-                             })
-  
+  if (model.type == "ROC")
+  {
+    codonProbability <- lapply(10^phis,  
+                               function(phi){
+                                 model$CalculateProbabilitiesForCodons(mutation, selection, phi)
+                               })
+    codonProbability <- do.call("rbind",codonProbability)
+  } else if (model.type == "FONSE")
+  {
+    codonProbability <- vector(mode = "list", length = length(codon.window))
+    for (i in 1:length(codon.window))
+    {
+      codonProbability.tmp <- lapply(10^phis,
+                               function(phi)
+                                 {
+                                 model$CalculateProbabilitiesForCodons(mutation, selection, phi,codon.window[i])
+                               })
+      codonProbability[[i]] <- do.call("rbind",codonProbability.tmp)
+    }
+    codonProbability <- Reduce("+",codonProbability)/length(codon.window)
+  }
+  return(codonProbability)
+}
+
+
+
+# NOT EXPOSED
+plotSinglePanel <- function(parameter, model, genome, expressionValues, samples, mixture, aa,codon.probability)
+{
+  codons <- AAToCodon(aa, T)
+  # 
+  # get codon specific parameter
+  selection <- vector("numeric", length(codons))
+  mutation <- vector("numeric", length(codons))
+  for (i in 1:length(codons))
+  {
+    selection[i] <- parameter$getCodonSpecificPosteriorMean(mixture, samples, codons[i], 1, T, log_scale = F)
+    mutation[i] <- parameter$getCodonSpecificPosteriorMean(mixture, samples, codons[i], 0, T, log_scale = F)
+  }
+  # 
+  expression.range <- range(expressionValues)
+  phis <- seq(from = expression.range[1], to = expression.range[2], by = 0.01)
+  # codonProbability <- lapply(10^phis,  
+  #                            function(phi){
+  #                              model$CalculateProbabilitiesForCodons(mutation, selection, phi)
+  #                            })
+  codonProbability <- codon.probability
   #get codon counts
   codons <- AAToCodon(aa, F)
   codonCounts <- vector("list", length(codons))
@@ -271,7 +339,7 @@ plotSinglePanel <- function(parameter, model, genome, expressionValues, samples,
   }
   
   # draw model fit
-  codonProbability <- do.call("rbind", codonProbability)
+  #codonProbability <- do.call("rbind", codonProbability)
   for(i in 1:length(codons))
   {
     lines(phis, codonProbability[, i], col=.codonColors[[ codons[i] ]])

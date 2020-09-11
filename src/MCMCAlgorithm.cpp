@@ -1,6 +1,6 @@
 #include "include/MCMCAlgorithm.h"
 #include <vector>
-
+#include <random>
 
 //R runs only
 #ifndef STANDALONE
@@ -9,10 +9,10 @@ using namespace Rcpp;
 #endif
 
 
-//C++ runs only.
-#ifdef STANDALONE
-#include <random>
-#endif
+// //C++ runs only.
+// #ifdef STANDALONE
+
+// #endif
 
 
 //Open MP
@@ -21,8 +21,6 @@ using namespace Rcpp;
 #include <omp.h>
 #include <thread>
 #endif
-
-
 
 
 //--------------------------------------------------//
@@ -100,11 +98,8 @@ MCMCAlgorithm::~MCMCAlgorithm()
 */
 double MCMCAlgorithm::acceptRejectSynthesisRateLevelForAllGenes(Genome& genome, Model& model, int iteration)
 {
-    //FILE * pFile;
-    //pFile = fopen("/home/clandere/Desktop/myfile.txt","a");
-	// TODO move the likelihood calculation out of here. make it a void function again.
-
-	double loglikelihood;
+    
+	double loglikelihood = 0.0;
 	double logPosterior = 0.0;
     //double logPosterior2 = 0.0; //currently unused
 	int numGenes = genome.getGenomeSize();
@@ -164,6 +159,9 @@ double MCMCAlgorithm::acceptRejectSynthesisRateLevelForAllGenes(Genome& genome, 
 				// log posterior with and without rev. jump probability
 				unscaledLogProb_curr[k] += logProbabilityRatio[1]; // with rev. jump prob.
 				unscaledLogProb_prop[k] += logProbabilityRatio[2]; // with rev. jump prob.
+
+				// TODO: unscaledLogPost_curr and unscaledLogPost_prop have been made redundant by modification to code adding unscaledLogProb_curr_singleMixture
+				// unscaledLogProb_prop_singleMixture. Remove.
 				unscaledLogPost_curr[k] += logProbabilityRatio[3]; // without rev. jump prob.
 				unscaledLogPost_prop[k] += logProbabilityRatio[4]; // without rev. jump prob.
 				unscaledLogLike_curr[k] += logProbabilityRatio[5]; //current logLikelihood
@@ -206,7 +204,7 @@ double MCMCAlgorithm::acceptRejectSynthesisRateLevelForAllGenes(Genome& genome, 
                 my_print("exp(curr logLik - maxVal): %\n", std::exp(unscaledLogProb_curr_singleMixture[k]));
                 my_print("Max Val. %\n", maxValue);
                 my_print("\n\n\n");
-		break;
+				break;
             }
             unscaledLogProb_curr_singleMixture[k] += maxValue;
 		}
@@ -227,6 +225,8 @@ double MCMCAlgorithm::acceptRejectSynthesisRateLevelForAllGenes(Genome& genome, 
 			double propLogPost = unscaledLogProb_prop[k];
 			std::vector<unsigned> mixtureElements = model.getMixtureElementsOfSelectionCategory(k);
             double alpha = -Parameter::randExp(1);
+         
+
 			if ( (alpha < (propLogPost - currLogPost)) && estimateSynthesisRate )
 			{
 				model.updateSynthesisRate(i,k);
@@ -236,26 +236,17 @@ double MCMCAlgorithm::acceptRejectSynthesisRateLevelForAllGenes(Genome& genome, 
 					unsigned element = mixtureElements[n];
 					currGeneLogPost += probabilities[element] * std::exp(unscaledLogProb_prop_singleMixture[element] - maxValue2);
 				}
+				loglikelihood += unscaledLogLike_prop[k]; //unscaled
 			}
 			else
 			{
-
 				for (unsigned n = 0u; n < mixtureElements.size(); n++)
 				{
 					unsigned element = mixtureElements[n];
 					currGeneLogPost += probabilities[element] * std::exp(unscaledLogProb_curr_singleMixture[element] - maxValue2);
 				}
+				loglikelihood += unscaledLogLike_curr[k]; //unscaled
 			}
-
-			/*if ( (alpha < (propLogPost - currLogPost)) && estimateSynthesisRate )
-			{
-			    model.updateSynthesisRate(i, k);
-			    currGeneLogPost += probabilities[k] * std::exp(unscaledLogPost_prop[k] - maxValue2);
-			}
-			else
-			{
-				currGeneLogPost += probabilities[k] * std::exp(unscaledLogPost_curr[k] - maxValue2);
-			}*/
 
             if (std::isnan(logPosterior))
             {
@@ -290,7 +281,7 @@ double MCMCAlgorithm::acceptRejectSynthesisRateLevelForAllGenes(Genome& genome, 
 	}
 
 	// take all priors into account
-	loglikelihood = logPosterior;
+	//loglikelihood = logPosterior;
 	logPosterior += model.calculateAllPriors();
     if (std::isnan(logPosterior))
     {
@@ -313,31 +304,75 @@ double MCMCAlgorithm::acceptRejectSynthesisRateLevelForAllGenes(Genome& genome, 
 }
 
 
+
 /* acceptRejectCodonSpecificParameter (NOT EXPOSED)
  * Arguments: reference to a genome and a model. which iteration (step) is currently being estimated
  * Calculates the logLikelihood for each grouping based on codon specific parameters. If this is greater
  * than a random number from the exponential distribution we update the parameters from proposed to
  * current. Update the trace when applicable.
 */
-void MCMCAlgorithm::acceptRejectCodonSpecificParameter(Genome& genome, Model& model, int iteration)
+void MCMCAlgorithm::acceptRejectCodonSpecificParameter(Genome& genome, PANSEModel& model, int iteration)
 {
-	//double acceptanceRatioForAllMixtures = 0.0;
 	std::vector<double> acceptanceRatioForAllMixtures(5,0.0);
 	unsigned size = model.getGroupListSize();
 
+	unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	std::default_random_engine e(seed);
+
+	std::vector<unsigned> groups(size);
+	std::iota(groups.begin(),groups.end(),0);
+	std::shuffle ( groups.begin(), groups.end(),e);
+
+	std::string param_1,param_2;
+	std::uniform_int_distribution<int> uni(0,1);
+
+	int x = uni(e);
+
+	if (x == 0)
+	{
+		param_1 = "Elongation";
+		param_2 = "NSE";
+	}
+	else
+	{
+		param_2 = "Elongation";
+		param_1 = "NSE";
+	}
+	
 	for (unsigned i = 0; i < size; i++)
 	{
-		std::string grouping = model.getGrouping(i);
 
-		// calculate likelihood ratio for every Category for current AA
-		model.calculateLogLikelihoodRatioPerGroupingPerCategory(grouping, genome, acceptanceRatioForAllMixtures);
-		//logPosterior += model.calculateAllPriors();
-        double threshold = -Parameter::randExp(1);
-
-		if (threshold < acceptanceRatioForAllMixtures[0] && std::isfinite(acceptanceRatioForAllMixtures[0]))
-		{
+		std::string grouping = model.getGrouping(groups[i]);
+		model.calculateLogLikelihoodRatioPerGroupingPerCategory(grouping, genome, acceptanceRatioForAllMixtures,param_1);
+    	double threshold = -Parameter::randExp(1);
+ 		if (threshold < acceptanceRatioForAllMixtures[0] && std::isfinite(acceptanceRatioForAllMixtures[0]) && !std::isnan(acceptanceRatioForAllMixtures[2]))
+		{	
+			if (std::isnan(acceptanceRatioForAllMixtures[0]))
+			{
+				my_print("ERROR: Accepted proposed value that results in NaN\n");
+			}
+			
 			// moves proposed codon specific parameters to current codon specific parameters
-			model.updateCodonSpecificParameter(grouping);
+			model.updateCodonSpecificParameter(grouping,param_1);
+		}	
+	}
+
+	std::shuffle ( groups.begin(), groups.end(),e);
+	for (unsigned i = 0; i < size; i++)
+	{
+
+		std::string grouping = model.getGrouping(groups[i]);
+		// calculate likelihood ratio for every Category for current AA (ROC, FONSE) or Codon (PA, PANSE)
+		model.calculateLogLikelihoodRatioPerGroupingPerCategory(grouping, genome, acceptanceRatioForAllMixtures,param_2);
+		double threshold = -Parameter::randExp(1);
+		if (threshold < acceptanceRatioForAllMixtures[0] && std::isfinite(acceptanceRatioForAllMixtures[0]) && !std::isnan(acceptanceRatioForAllMixtures[2]))
+		{	
+			// moves proposed codon specific parameters to current codon specific parameters
+			if (std::isnan(acceptanceRatioForAllMixtures[0]))
+			{
+				my_print("ERROR: Accepted proposed value that results in NaN\n");
+			}
+			model.updateCodonSpecificParameter(grouping,param_2);
 			if ((iteration % thinning) == 0)
 			{
 				likelihoodTrace[(iteration / thinning)] = acceptanceRatioForAllMixtures[2];//will be 0
@@ -350,15 +385,96 @@ void MCMCAlgorithm::acceptRejectCodonSpecificParameter(Genome& genome, Model& mo
 			{
 				likelihoodTrace[(iteration / thinning)] = acceptanceRatioForAllMixtures[1];
 				posteriorTrace[(iteration / thinning)] = acceptanceRatioForAllMixtures[3];
-
-			}
+			}	
 		}
-		if ((iteration % thinning) == 0)
+	}
+	
+
+	if ((iteration % thinning) == 0)
+	{
+		for (unsigned i = 0;i < size; i++)
 		{
+			std::string grouping = model.getGrouping(i);
 			model.updateCodonSpecificParameterTrace(iteration/thinning, grouping);
 		}
 	}
 }
+
+
+
+/* acceptRejectCodonSpecificParameter (NOT EXPOSED)
+ * Arguments: reference to a genome and a model. which iteration (step) is currently being estimated
+ * Calculates the logLikelihood for each grouping based on codon specific parameters. If this is greater
+ * than a random number from the exponential distribution we update the parameters from proposed to
+ * current. Update the trace when applicable.
+*/
+void MCMCAlgorithm::acceptRejectCodonSpecificParameter(Genome& genome, Model& model, int iteration)
+{
+	std::vector<double> acceptanceRatioForAllMixtures(5,0.0);
+	unsigned size = model.getGroupListSize();
+
+	// unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+	// std::default_random_engine e(seed);
+
+	// std::random_device rd;
+ //    std::mt19937 g(rd());
+
+	// std::vector<unsigned> groups(size);
+	// std::iota(groups.begin(),groups.end(),0);
+	// std::shuffle ( groups.begin(), groups.end(),g);
+	
+	for (unsigned i = 0; i < size; i++)
+	{
+
+		std::string grouping = model.getGrouping(i);
+		// calculate likelihood ratio for every Category for current AA (ROC, FONSE) or Codon (PA, PANSE)
+		model.calculateLogLikelihoodRatioPerGroupingPerCategory(grouping, genome, acceptanceRatioForAllMixtures);
+    	double threshold = -Parameter::randExp(1);
+ 		if (threshold < acceptanceRatioForAllMixtures[0] && std::isfinite(acceptanceRatioForAllMixtures[0]) && !std::isnan(acceptanceRatioForAllMixtures[2]))
+		{	
+			
+			
+			// moves proposed codon specific parameters to current codon specific parameters
+			if (std::isnan(acceptanceRatioForAllMixtures[0]))
+			{
+				my_print("ERROR: Accepted proposed value that results in NaN\n");
+			}
+			model.updateCodonSpecificParameter(grouping);
+			if ((iteration % thinning) == 0)
+			{
+				likelihoodTrace[(iteration / thinning)] += acceptanceRatioForAllMixtures[2];//will be 0
+				posteriorTrace[(iteration / thinning)] += acceptanceRatioForAllMixtures[4];//will be 0
+			}
+			
+		}
+		else
+		{
+			if ((iteration % thinning) == 0)
+			{
+				likelihoodTrace[(iteration / thinning)] += acceptanceRatioForAllMixtures[1];
+				posteriorTrace[(iteration / thinning)] += acceptanceRatioForAllMixtures[3];
+
+			}
+			
+		}
+	
+		// if ((iteration % thinning) == 0)
+		// {
+		// 	model.updateCodonSpecificParameterTrace(iteration/thinning, grouping);
+		// }
+	}
+	if ((iteration % thinning) == 0)
+	{
+		for (unsigned i = 0;i < size; i++)
+		{
+			std::string grouping = model.getGrouping(i);
+			model.updateCodonSpecificParameterTrace(iteration/thinning, grouping);
+		}
+	}
+}
+
+
+
 
 
 /* acceptRejectHyperParameter (NOT EXPOSED)
@@ -369,11 +485,10 @@ void MCMCAlgorithm::acceptRejectCodonSpecificParameter(Genome& genome, Model& mo
 void MCMCAlgorithm::acceptRejectHyperParameter(Genome &genome, Model& model, unsigned iteration)
 {
 	std::vector <double> logProbabilityRatios;
-
 	model.calculateLogLikelihoodRatioForHyperParameters(genome, iteration, logProbabilityRatios);
-
 	for (unsigned i = 0; i < logProbabilityRatios.size(); i++)
 	{
+		//my_print("%\n",logProbabilityRatios[i]);
 		if (!std::isfinite(logProbabilityRatios[i]))
             my_print("logProbabilityRatio % not finite!\n", i);
 
@@ -405,7 +520,8 @@ void MCMCAlgorithm::run(Genome& genome, Model& model, unsigned numCores, unsigne
 //#ifndef __APPLE__
 	omp_set_num_threads(numCores);
 #endif
-	// Replace with reportSample? 
+
+	// Replace with reportSample?
 	unsigned reportStep = (100u < thinning) ? thinning : 100u;
 
 	// Allows to diverge from initial conditions (divergenceIterations controls the divergence).
@@ -416,13 +532,13 @@ void MCMCAlgorithm::run(Genome& genome, Model& model, unsigned numCores, unsigne
 	// initialize everything
 
 	//model.setNumPhiGroupings(genome.getGene(0).getObservedSynthesisRateValues().size());
-	model.initTraces(samples + 1, genome.getGenomeSize()); //Samples + 2 so we can store the starting and ending values.
+	model.initTraces(samples + 1, genome.getGenomeSize(),(estimateSynthesisRate||estimateMixtureAssignment)); //Samples + 2 so we can store the starting and ending values.
 	// starting the MCMC
-
+	
 	model.updateTracesWithInitialValues(genome);
 	if (stepsToAdapt == -1)
 		stepsToAdapt = maximumIterations;
-
+	my_print("Type: %\n",model.type);
 	my_print("Starting MCMC\n");
 	my_print("\tEstimate Codon Specific Parameters? % \n", (estimateCodonSpecificParameter ? "TRUE" : "FALSE") );
 	my_print("\tEstimate Hyper Parameters? % \n", (estimateHyperParameter ? "TRUE" : "FALSE") );
@@ -459,9 +575,9 @@ void MCMCAlgorithm::run(Genome& genome, Model& model, unsigned numCores, unsigne
             #ifndef STANDALONE
             Rcpp::checkUserInterrupt();
             #endif
-
-	    my_print("Status at thinned sample (iteration): % (%)\n",  (iteration / thinning), iteration);
-			my_print("\t current logPosterior: % \n", posteriorTrace[(iteration/thinning) - 1] );
+	   		my_print("Status at thinned sample (iteration): % (%)\n",  (iteration / thinning), iteration);
+			my_print("\t current logPosterior: % \n", posteriorTrace[(iteration/thinning) - 1]);
+			my_print("\t current logLikelihood: %\n", likelihoodTrace[(iteration/thinning) - 1]);
 			if (iteration > stepsToAdapt)
 				my_print("No longer adapting\n");
 
@@ -473,9 +589,9 @@ void MCMCAlgorithm::run(Genome& genome, Model& model, unsigned numCores, unsigne
 		}
 		if (estimateCodonSpecificParameter)
 		{
-
 			model.proposeCodonSpecificParameter();
 			acceptRejectCodonSpecificParameter(genome, model, iteration);
+			
             //TODO:Probably do a nan check
 			if ((iteration % adaptiveWidth) == 0u)
 				model.adaptCodonSpecificParameterProposalWidth(adaptiveWidth, iteration / thinning, iteration <= stepsToAdapt);
@@ -483,7 +599,6 @@ void MCMCAlgorithm::run(Genome& genome, Model& model, unsigned numCores, unsigne
 		// update hyper parameter
 		if (estimateHyperParameter)
 		{
-
 			model.updateGibbsSampledHyperParameters(genome);
 			model.proposeHyperParameters();
 			acceptRejectHyperParameter(genome, model, iteration);
@@ -502,15 +617,15 @@ void MCMCAlgorithm::run(Genome& genome, Model& model, unsigned numCores, unsigne
 				posteriorTrace[(iteration / thinning)] = logPost;
 				if (std::isnan(logPost))
 				{
-					my_printError("ERROR: Log likelihood is NaN, exiting at iteration %\n", iteration);
+					my_printError("ERROR: LogPosterior is NaN, exiting at iteration %\n", iteration);
 					model.setLastIteration(iteration / thinning);
 					return;
 				}
 			}
 			if ((iteration % adaptiveWidth) == 0u)
 				model.adaptSynthesisRateProposalWidth(adaptiveWidth, iteration <= stepsToAdapt);
-
   		}
+
 
 
 		if ((iteration % (50 * adaptiveWidth)) == 0u)
@@ -541,6 +656,158 @@ void MCMCAlgorithm::run(Genome& genome, Model& model, unsigned numCores, unsigne
 	}
 	my_print("leaving MCMC loop\n");
 }
+
+/* run (RCPP EXPOSED)
+ * Arguments: reference to a genome and a model. number of cores to run on (unless running on a MAC). Number of
+ * iterations to allow initial conditions to vary.
+ * Runs the MCMC algorithm for the set number of iterations. Run can terminate early if Geweke score meets
+ * the set criteria.
+*/
+void MCMCAlgorithm::run_PANSE(Genome& genome, PANSEModel& model, unsigned numCores, unsigned divergenceIterations)
+{
+#ifdef _OPENMP
+//#ifndef __APPLE__
+	omp_set_num_threads(numCores);
+#endif
+
+	// Replace with reportSample?
+	unsigned reportStep = (100u < thinning) ? thinning : 100u;
+
+	// Allows to diverge from initial conditions (divergenceIterations controls the divergence).
+	// This allows for varying initial conditions for better exploration of the parameter space.
+	varyInitialConditions(genome, model, divergenceIterations);
+
+	unsigned maximumIterations = samples * thinning;
+	// initialize everything
+
+	//model.setNumPhiGroupings(genome.getGene(0).getObservedSynthesisRateValues().size());
+	model.initTraces(samples + 1, genome.getGenomeSize(),(estimateSynthesisRate||estimateMixtureAssignment)); //Samples + 2 so we can store the starting and ending values.
+	// starting the MCMC
+	
+	model.updateTracesWithInitialValues(genome);
+	if (stepsToAdapt == -1)
+		stepsToAdapt = maximumIterations;
+	my_print("Type: %\n",model.type);
+	my_print("Starting MCMC\n");
+	my_print("\tEstimate Codon Specific Parameters? % \n", (estimateCodonSpecificParameter ? "TRUE" : "FALSE") );
+	my_print("\tEstimate Hyper Parameters? % \n", (estimateHyperParameter ? "TRUE" : "FALSE") );
+	my_print("\tEstimate Synthesis rates? % \n", (estimateSynthesisRate ? "TRUE" : "FALSE") );
+	my_print("\tStarting MCMC with % iterations\n", maximumIterations);
+	my_print("\tAdapting will stop after % steps\n", stepsToAdapt);
+
+	// set the last iteration to the max iterations,
+	// this way if the MCMC doesn't exit based on Geweke score, it will use the max iteration for posterior means
+	model.setLastIteration(samples);
+	for (int iteration = 1u; iteration <= maximumIterations; iteration++)
+	{
+		if (writeRestartFile)
+		{
+			if ((iteration) % fileWriteInterval == 0u)
+			{
+				my_print("Begin saving restart file(s) at sample (iteration): % (%)\n",  (iteration / thinning), iteration);
+
+				if (multipleFiles)
+				{
+					std::ostringstream oss;
+					oss << file << "_" << (iteration) / thinning;
+					std::string tmp = oss.str();
+					model.writeRestartFile(tmp);
+				}
+				else
+				{
+					model.writeRestartFile(file);
+				}
+			}
+		}
+		if ((iteration) % reportStep == 0u)
+		{
+            #ifndef STANDALONE
+            Rcpp::checkUserInterrupt();
+            #endif
+	   		my_print("Status at thinned sample (iteration): % (%)\n",  (iteration / thinning), iteration);
+			my_print("\t current logPosterior: % \n", posteriorTrace[(iteration/thinning) - 1]);
+			my_print("\t current logLikelihood: %\n", likelihoodTrace[(iteration/thinning) - 1]);
+			if (iteration > stepsToAdapt)
+				my_print("No longer adapting\n");
+
+			model.printHyperParameters();
+			for (unsigned i = 0u; i < model.getNumMixtureElements(); i++)
+			{
+				my_print("\t current Mixture element probability for element %: %\n", i, model.getCategoryProbability(i));
+			}
+		}
+		if (estimateCodonSpecificParameter)
+		{
+			model.proposeCodonSpecificParameter();
+			acceptRejectCodonSpecificParameter(genome, model, iteration);
+			
+            //TODO:Probably do a nan check
+			if ((iteration % adaptiveWidth) == 0u)
+				model.adaptCodonSpecificParameterProposalWidth(adaptiveWidth, iteration / thinning, iteration <= stepsToAdapt);
+		}
+		// update hyper parameter
+		if (estimateHyperParameter)
+		{
+			model.updateGibbsSampledHyperParameters(genome);
+			model.proposeHyperParameters();
+			acceptRejectHyperParameter(genome, model, iteration);
+            //TODO:Probably do a nan check
+			if ((iteration % adaptiveWidth) == 0u)
+				model.adaptHyperParameterProposalWidths(adaptiveWidth, iteration <= stepsToAdapt);
+
+		}
+		// update expression level values
+		if (estimateSynthesisRate || estimateMixtureAssignment)
+		{
+			model.proposeSynthesisRateLevels();
+			double logPost = acceptRejectSynthesisRateLevelForAllGenes(genome, model, iteration);
+			if ((iteration % thinning) == 0u)
+			{
+				posteriorTrace[(iteration / thinning)] = logPost;
+				if (std::isnan(logPost))
+				{
+					my_printError("ERROR: LogPosterior is NaN, exiting at iteration %\n", iteration);
+					model.setLastIteration(iteration / thinning);
+					return;
+				}
+			}
+			if ((iteration % adaptiveWidth) == 0u)
+				model.adaptSynthesisRateProposalWidth(adaptiveWidth, iteration <= stepsToAdapt);
+  		}
+
+
+
+		if ((iteration % (50 * adaptiveWidth)) == 0u)
+		{
+			double gewekeScore = calculateGewekeScore(iteration/thinning);
+
+			my_print("##################################################\n");
+			my_print("Geweke Score after % iterations: %\n", iteration, gewekeScore);
+			my_print("##################################################\n");
+
+			if (std::abs(gewekeScore) < 1.96)
+			{
+				my_print("Stopping run based on convergence after % iterations\n\n", iteration);
+
+				// Comment out this break to keep the run from stopping on convergence
+				//model.setLastIteration(iteration/thinning);
+				//break;
+			}
+		}
+	} // end MCMC loop
+
+	if (writeRestartFile)
+	{
+		std::ostringstream oss;
+		oss << file << "_final";
+		std::string tmp = oss.str();
+		model.writeRestartFile(tmp);
+	}
+	my_print("leaving MCMC loop\n");
+}
+
+
+
 
 
 /* varyInitialConditions (NOT EXPOSED)
@@ -585,6 +852,7 @@ void MCMCAlgorithm::varyInitialConditions(Genome& genome, Model& model, unsigned
 				std::string grouping = model.getGrouping(i);
 				model.updateCodonSpecificParameter(grouping);
 			}
+			model.completeUpdateCodonSpecificParameter();
 		}
 		// no prior on hyper parameters -> just accept everything
 		if (estimateHyperParameter)
@@ -763,6 +1031,13 @@ void MCMCAlgorithm::setEstimateMixtureAssignment(bool in)
  * it was written at and allow for multiple files to be written if multiple is set to true. The file write interval
  * is actually the interval specified times the thinning.
 */
+//' @name setRestartFileSettings
+//' @title setRestartFileSettings
+//' @description Method of MCMC class (access via mcmc$<function name>, where mcmc is an object initialized by initializeMCMCObject). Set restart file output name and frequency prior to running MCMC
+//' @param filename name of restart file
+//' @param interval number of samples (ie. iterations * thinning) between writing new restart file
+//' @param multiple if true, will output a new restart file at each interval (file name will include sample it was written at)
+
 void MCMCAlgorithm::setRestartFileSettings(std::string filename, unsigned interval, bool multiple)
 {
 	file = filename.substr(0,  filename.find_last_of("."));
@@ -776,8 +1051,12 @@ void MCMCAlgorithm::setRestartFileSettings(std::string filename, unsigned interv
 /* setStepsToAdapt (RCPP EXPOSED)
  * Arguments: steps (unsigned)
  * Will set the specified steps to adapt for the run if the value is less than samples * thinning (aka, the number
- * of steps the run will last).
+ * of steps the run will last).The default parameter passed in as -1 uses the full iterations.
 */
+//' @name setStepsToAdapt
+//' @title setStepsToAdapt
+//' @description Method of MCMC class (access via mcmc$<function name>, where mcmc is an object initialized by initializeMCMCObject). Set number of iterations (total iterations = samples * thinning) to allow proposal widths to adapt
+//' @param steps a postive value
 void MCMCAlgorithm::setStepsToAdapt(unsigned steps)
 {
 	if (steps <= samples * thinning)
@@ -791,6 +1070,10 @@ void MCMCAlgorithm::setStepsToAdapt(unsigned steps)
  * Arguments: None
  * Return the value of stepsToAdapt
 */
+//' @name getStepsToAdapt
+//' @title getStepsToAdapt
+//' @description Method of MCMC class (access via mcmc$<function name>, where mcmc is an object initialized by initializeMCMCObject). Return number of iterations (total iterations = samples * thinning) to allow proposal widths to adapt
+//' @return number of sample steps to adapt
 int MCMCAlgorithm::getStepsToAdapt()
 {
 	return stepsToAdapt;
@@ -801,6 +1084,11 @@ int MCMCAlgorithm::getStepsToAdapt()
  * Arguments: None
  * Return the log posterior trace.
 */
+
+//' @name getLogPosteriorTrace 
+//' @title getLogPosteriorTrace 
+//' @description Method of MCMC class (access via mcmc$<function name>, where mcmc is an object initialized by initializeMCMCObject). Returns the logPosterior trace
+//' @return vector representing logPosterior trace
 std::vector<double> MCMCAlgorithm::getLogPosteriorTrace()
 {
 	return posteriorTrace;
@@ -811,6 +1099,11 @@ std::vector<double> MCMCAlgorithm::getLogPosteriorTrace()
  * Arguments: None
  * Return the log likelihoodTrace trace.
 */
+
+//' @name getLogLikelihoodTrace
+//' @title getLogLikelihoodTrace
+//' @description Method of MCMC class (access via mcmc$<function name>, where mcmc is an object initialized by initializeMCMCObject). Returns the logLikelihood trace
+//' @return vector representing logLikelihood trace
 std::vector<double> MCMCAlgorithm::getLogLikelihoodTrace()
 {
 	return likelihoodTrace;
@@ -822,6 +1115,13 @@ std::vector<double> MCMCAlgorithm::getLogLikelihoodTrace()
  * Calculates the mean for the specified number of samples from the end of the trace
  * for the loglikelihood trace.
 */
+
+
+//' @name getLogPosteriorMean
+//' @title getLogPosteriorMean
+//' @description Method of MCMC class (access via mcmc$<function name>, where mcmc is an object initialized by initializeMCMCObject). Calculate the mean log posterior probability over the last n samples
+//' @param samples postive value less than total length of the MCMC trace
+//' @return mean logPosterior
 double MCMCAlgorithm::getLogPosteriorMean(unsigned _samples)
 {
 	double posteriorMean = 0.0;
@@ -999,6 +1299,10 @@ std::vector<std::vector<double>> MCMCAlgorithm::solveToeplitzMatrix(int lr, std:
  * Arguments: None
  * Return samples.
 */
+//' @name getSamples
+//' @title getSamples 
+//' @description Method of MCMC class (access via mcmc$<function name>, where mcmc is an object initialized by initializeMCMCObject). Return number of samples set for MCMCAlgorithm object
+//' @return number of samples used during MCMC
 unsigned MCMCAlgorithm::getSamples()
 {
     return samples;
@@ -1009,6 +1313,10 @@ unsigned MCMCAlgorithm::getSamples()
  * Arguments: None
  * Return thinning.
 */
+//' @name getThinning
+//' @title getThinning 
+//' @description Method of MCMC class (access via mcmc$<function name>, where mcmc is an object initialized by initializeMCMCObject). Return thinning value, which is the number of iterations (total iterations = samples * thinning) not being kept
+//' @return thinning value used during MCMC
 unsigned MCMCAlgorithm::getThinning()
 {
     return thinning;
@@ -1019,6 +1327,10 @@ unsigned MCMCAlgorithm::getThinning()
  * Arguments: None
  * Return adaptiveWidth.
 */
+//' @name getAdaptiveWidth
+//' @title getAdaptiveWidth
+//' @description Return sample adaptiveWidth value, which is the number of samples (not iterations) between adapting parameter proposal widths
+//' @return number of sample steps between adapting proposal widths
 unsigned MCMCAlgorithm::getAdaptiveWidth()
 {
     return adaptiveWidth;
@@ -1029,6 +1341,11 @@ unsigned MCMCAlgorithm::getAdaptiveWidth()
  * Arguments: None
  * Change samples.
 */
+//' @name setSamples
+//' @title setSamples
+//' @description Method of MCMC class (access via mcmc$<function name>, where mcmc is an object initialized by initializeMCMCObject). Set number of samples set for MCMCAlgorithm object
+//' @param _samples postive value
+
 void MCMCAlgorithm::setSamples(unsigned _samples)
 {
     samples = _samples;
@@ -1039,6 +1356,11 @@ void MCMCAlgorithm::setSamples(unsigned _samples)
  * Arguments: None
  * Change thinning.
 */
+//' @name setThinning
+//' @title setThinning
+//' @description  Set thinning value, which is the number of iterations (total iterations = samples * thinning) not being kept
+//' @param _thinning postive value
+
 void MCMCAlgorithm::setThinning(unsigned _thinning)
 {
     thinning = _thinning;
@@ -1049,6 +1371,11 @@ void MCMCAlgorithm::setThinning(unsigned _thinning)
  * Arguments: None
  * Change adaptiveWidth.
 */
+//' @name setAdaptiveWidth
+//' @title setAdaptiveWidth
+//' @description  Method of MCMC class (access via mcmc$<function name>, where mcmc is an object initialized by initializeMCMCObject). Set sample adaptiveWidth value, which is the number of samples (not iterations) between adapting parameter proposal widths
+//' @param _adaptiveWidth postive value
+
 void MCMCAlgorithm::setAdaptiveWidth(unsigned _adaptiveWidth)
 {
     adaptiveWidth = _adaptiveWidth;
@@ -1079,10 +1406,11 @@ void MCMCAlgorithm::setLogLikelihoodTrace(std::vector<double> _likelihoodTrace)
 //---------- RCPP Module ----------//
 //---------------------------------//
 
-
 RCPP_EXPOSED_CLASS(Genome)
 RCPP_EXPOSED_CLASS(ROCParameter)
 RCPP_EXPOSED_CLASS(ROCModel)
+RCPP_EXPOSED_CLASS(PANSEModel)
+RCPP_EXPOSED_CLASS(PANSEParameter)
 RCPP_EXPOSED_CLASS(Model)
 
 
@@ -1098,6 +1426,7 @@ RCPP_MODULE(MCMCAlgorithm_mod)
 
 		//MCMC Functions:
 		.method("run", &MCMCAlgorithm::run)
+		.method("run_PANSE", &MCMCAlgorithm::run_PANSE)
 		.method("setEstimateMixtureAssignment", &MCMCAlgorithm::setEstimateMixtureAssignment)
 		.method("setRestartFileSettings", &MCMCAlgorithm::setRestartFileSettings)
 		.method("getLogPosteriorTrace", &MCMCAlgorithm::getLogPosteriorTrace)

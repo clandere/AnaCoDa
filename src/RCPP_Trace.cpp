@@ -13,8 +13,10 @@ RCPP_MODULE(Trace_mod)
     .method("getSynthesisRateTrace", &Trace::getSynthesisRateTrace)
     .method("getSynthesisRateAcceptanceRateTrace", &Trace::getSynthesisRateAcceptanceRateTrace)
     .method("getCodonSpecificAcceptanceRateTraceForAA", &Trace::getCodonSpecificAcceptanceRateTraceForAA)
+    .method("getCodonSpecificAcceptanceRateTraceForCodon", &Trace::getCodonSpecificAcceptanceRateTraceForCodon)
     .method("getMixtureAssignmentTrace", &Trace::getMixtureAssignmentTrace)
     .method("getCodonSpecificAcceptanceRateTrace", &Trace::getCodonSpecificAcceptanceRateTrace)
+    .method("getNseRateSpecificAcceptanceRateTrace", &Trace::getNseRateSpecificAcceptanceRateTrace)
     .method("getMixtureProbabilitiesTrace", &Trace::getMixtureProbabilitiesTrace)
     .method("getExpectedSynthesisRateTrace", &Trace::getExpectedSynthesisRateTrace)
     .method("getSynthesisOffsetAcceptanceRateTrace", &Trace::getSynthesisOffsetAcceptanceRateTrace)
@@ -38,6 +40,7 @@ RCPP_MODULE(Trace_mod)
     .method("setMixtureAssignmentTrace", &Trace::setMixtureAssignmentTrace)
     .method("setMixtureProbabilitiesTrace", &Trace::setMixtureProbabilitiesTrace)
     .method("setCodonSpecificAcceptanceRateTrace", &Trace::setCodonSpecificAcceptanceRateTrace)
+    .method("setNseRateSpecificAcceptanceRateTrace", &Trace::setNseRateSpecificAcceptanceRateTrace)
 
 
     //ROC Specific:
@@ -50,6 +53,15 @@ RCPP_MODULE(Trace_mod)
     .method("setObservedSynthesisNoiseTrace", &Trace::setObservedSynthesisNoiseTrace)
     .method("setCodonSpecificParameterTrace", &Trace::setCodonSpecificParameterTrace)
 
+    //PANSE Specific
+    .method("resizeNumberCodonSpecificParameterTrace", &Trace::resizeNumberCodonSpecificParameterTrace)
+    .method("getPartitionFunctionTraces",&Trace::getPartitionFunctionTraces)
+    .method("setPartitionFunctionTraces",&Trace::setPartitionFunctionTraces)
+
+
+    //FONSE Specific
+    .method("getInitiationCostTrace",&Trace::getInitiationCostTrace)
+    .method("setInitiationCostTrace", &Trace::setInitiationCostTrace)
     ;
 }
 #endif

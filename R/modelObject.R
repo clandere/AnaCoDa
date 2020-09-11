@@ -5,13 +5,13 @@
 #' @param model A string containing the model to run (ROC, FONSE, or PA), has to match parameter object. 
 #'  
 #' @param with.phi (ROC only) A boolean that determines whether or not to include empirical
-#'    phi values (expression rates) for the calculations. 
+#'    phi values (expression rates) for the calculations. Default value is FALSE
 #'    
-#' @param fix.observation.noise (ROC only) Allows to fix the noise in the observed expression dataset to the initial condition.
-#'	The initial condition for the observed expression noise can be set in the parameter object. 
+#' @param fix.observation.noise (ROC only) Allows fixing the noise term sepsilon in the observed expression dataset to its initial condition.  This value should override the est.hyper=TRUE setting in \code{initializeMCMCObject()}
+#'	The initial condition for the observed expression noise is set in the parameter object. Default value is FALSE. 
 #'  
-#' @param rfp.count.column (PA and PANSE only) A number representing the RFP count column to use.
-#'  
+#' @param rfp.count.column (PA and PANSE only) A number representing the RFP count column to use. Default value is 1.
+#'
 #' @return This function returns the model object created. 
 #'  
 #' @description initializes the model object. 
@@ -49,11 +49,11 @@ initializeModelObject <- function(parameter, model = "ROC", with.phi = FALSE, fi
   if(model == "ROC") {
     c.model <- new(ROCModel, with.phi, fix.observation.noise)
   } else if (model == "FONSE") {
-    c.model = new(FONSEModel)
+    c.model = new(FONSEModel,with.phi,fix.observation.noise)
   } else if (model == "PA") {
-    c.model <- new(PAModel, rfp.count.column)
+    c.model <- new(PAModel, rfp.count.column,with.phi,fix.observation.noise)
   } else if (model == "PANSE") {
-    c.model <- new(PANSEModel, rfp.count.column)
+    c.model <- new(PANSEModel, rfp.count.column,with.phi,fix.observation.noise)
   } else {
     stop("Unknown model.")
   }

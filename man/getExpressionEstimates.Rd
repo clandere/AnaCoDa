@@ -4,8 +4,13 @@
 \alias{getExpressionEstimates}
 \title{Returns the estimated phi posterior for a gene}
 \usage{
-getExpressionEstimates(parameter, gene.index, samples,
-  quantiles = c(0.025, 0.975))
+getExpressionEstimates(
+  parameter,
+  gene.index,
+  samples,
+  quantiles = c(0.025, 0.975),
+  genome = NULL
+)
 }
 \arguments{
 \item{parameter}{on object created by \code{initializeParameterObject}.}
@@ -15,6 +20,8 @@ getExpressionEstimates(parameter, gene.index, samples,
 \item{samples}{number of samples for the posterior estimate}
 
 \item{quantiles}{vector of quantiles, (default: c(0.025, 0.975))}
+
+\item{genome}{if genome is given, then will include gene ids in output (default is NULL)}
 }
 \value{
 returns a vector with the mixture assignment of each gene corresbonding to \code{gene.index} in the same order as the genome.

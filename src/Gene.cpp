@@ -333,7 +333,7 @@ void Gene::initRFPCount(unsigned numCategories)
  * Returns the RFPCount vector for the category index specified.
  * For unit testing only.
  */
-std::vector <int> Gene::getRFPCount(unsigned RFPCountColumn)
+std::vector <unsigned> Gene::getRFPCount(unsigned RFPCountColumn)
 {
     return geneData.getRFPCount(RFPCountColumn);
 }
@@ -343,7 +343,7 @@ std::vector <int> Gene::getRFPCount(unsigned RFPCountColumn)
  * Arguments: A vector argument to set the RFP category's RFPCount to, a number representing the RFP category to modify (default 0)
  * Sets the RFPCount vector for the category index specified to the vector argument given.
  */
-void Gene::setRFPCount(std::vector <int> RFPCounts, unsigned RFPCountColumn)
+void Gene::setRFPCount(std::vector <unsigned> RFPCounts, unsigned RFPCountColumn)
 {
     geneData.setRFPCount(RFPCounts, RFPCountColumn);
 }
@@ -542,9 +542,6 @@ std::vector <unsigned> Gene::getCodonPositions(std::string codon)
     }
     return rv;
 }
-
-
-
 
 
 //---------------------------------//

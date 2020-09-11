@@ -7,7 +7,7 @@
 \arguments{
 \item{aa}{Amino acid in single character notation}
 
-\item{focal}{logical, Include the alphabetically first (focal) codon}
+\item{focal}{logical, Include the alphabetically last (focal) codon}
 }
 \value{
 Returns the names of the codon encoding the give amino acid

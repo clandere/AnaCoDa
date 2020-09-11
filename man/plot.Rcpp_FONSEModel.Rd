@@ -4,8 +4,15 @@
 \alias{plot.Rcpp_FONSEModel}
 \title{Plot Model Object}
 \usage{
-\method{plot}{Rcpp_FONSEModel}(x, genome, samples = 100, mixture = 1,
-  simulated = FALSE, ...)
+\method{plot}{Rcpp_FONSEModel}(
+  x,
+  genome,
+  samples = 100,
+  mixture = 1,
+  simulated = FALSE,
+  codon.window = NULL,
+  ...
+)
 }
 \arguments{
 \item{x}{An Rcpp model object initialized with \code{initializeModelObject}.}
@@ -17,6 +24,8 @@
 \item{mixture}{The mixture for which to graph values.}
 
 \item{simulated}{A boolean value that determines whether to use the simulated genome.}
+
+\item{codon.window}{A boolean value that determines the codon window to use for calculating codon frequencies. If NULL (the default), use complete sequences.}
 
 \item{...}{Optional, additional arguments.
 For this function, a possible title for the plot in the form of a list if set with "main".}

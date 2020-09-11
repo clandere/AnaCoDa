@@ -4,13 +4,12 @@
 \alias{plot.Rcpp_ROCModel}
 \title{Plot Model Object}
 \usage{
-\method{plot}{Rcpp_ROCModel}(x, genome = NULL, samples = 100,
-  mixture = 1, simulated = FALSE, ...)
+\method{plot}{Rcpp_ROCModel}(x, genome = NULL, samples = 100, mixture = 1, simulated = FALSE, ...)
 }
 \arguments{
 \item{x}{An Rcpp model object initialized with \code{initializeModelObject}.}
 
-\item{genome}{An Rcpp genome object initialized with \code{initializeGenomeObject}.#}
+\item{genome}{An Rcpp genome object initialized with \code{initializeGenomeObject}.}
 
 \item{samples}{The number of samples in the trace}
 

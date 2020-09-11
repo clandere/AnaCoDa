@@ -4,9 +4,15 @@
 \alias{initializeMCMCObject}
 \title{Initialize MCMC}
 \usage{
-initializeMCMCObject(samples, thinning = 1, adaptive.width = 100,
-  est.expression = TRUE, est.csp = TRUE, est.hyper = TRUE,
-  est.mix = TRUE)
+initializeMCMCObject(
+  samples,
+  thinning = 1,
+  adaptive.width = 100,
+  est.expression = TRUE,
+  est.csp = TRUE,
+  est.hyper = TRUE,
+  est.mix = TRUE
+)
 }
 \arguments{
 \item{samples}{Number of samples to be produced when running the 
@@ -16,7 +22,8 @@ MCMC algorithm. No default value.}
 1, every step will be saved as a sample. Default value is 1.}
 
 \item{adaptive.width}{Number that determines how often the acceptance/rejection
-window should be altered. Default value is 100 samples.}
+window should be altered. Default value is 100 samples.
+Proportion of MCMC steps where the proposal distribution is adaptive can be set using \code{mcmc$setStepsToAdapt}. The default parameter passed in as -1 uses the full iterations.}
 
 \item{est.expression}{Boolean that tells whether or not synthesis rate values
 should be estimated in the MCMC algorithm run. Default value is TRUE.}
@@ -25,7 +32,8 @@ should be estimated in the MCMC algorithm run. Default value is TRUE.}
 should be estimated in the MCMC algorithm run. Default value is TRUE.}
 
 \item{est.hyper}{Boolean that tells whether or not hyper parameters
-should be estimated in the MCMC algorithm run. Default value is TRUE.}
+should be estimated in the MCMC algorithm run. Default value is TRUE.
+Setting for expression noise parameter sepsilon can be overridden by setting \code{fix.observation.noise} in \code{initializeModelObject()}}
 
 \item{est.mix}{Boolean that tells whether or not the genes' mixture element
 should be estimated in the MCMC algorithm run. Default value is TRUE.}

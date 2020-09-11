@@ -43,7 +43,7 @@ class PAParameter: public Parameter {
 		void writePARestartFile(std::string filename);
 		void initFromRestartFile(std::string filename);
 
-		void initAllTraces(unsigned samples, unsigned num_genes);
+		void initAllTraces(unsigned samples, unsigned num_genes, bool estimateSynthesisRate = true);
 		void initAlpha(double alphaValue, unsigned mixtureElement, std::string codon); //R?
 		void initLambdaPrime(double lambdaPrimeValue, unsigned mixtureElement, std::string codon); //R?
 		void initMutationSelectionCategories(std::vector<std::string> files, unsigned numCategories,
@@ -58,6 +58,7 @@ class PAParameter: public Parameter {
 		double getCurrentCodonSpecificProposalWidth(unsigned index);
 		void proposeCodonSpecificParameter();
 		void updateCodonSpecificParameter(std::string grouping);
+		void completeUpdateCodonSpecificParameter();
 
 
 		//Adaptive Width Functions:

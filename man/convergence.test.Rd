@@ -4,8 +4,16 @@
 \alias{convergence.test}
 \title{Convergence Test}
 \usage{
-convergence.test(object, samples = 10, frac1 = 0.1, frac2 = 0.5,
-  thin = 1, plot = FALSE, what = "Mutation", mixture = 1)
+convergence.test(
+  object,
+  samples = 10,
+  frac1 = 0.1,
+  frac2 = 0.5,
+  thin = 1,
+  plot = FALSE,
+  what = "Mutation",
+  mixture = 1
+)
 }
 \arguments{
 \item{object}{an object of either class Trace or MCMC}

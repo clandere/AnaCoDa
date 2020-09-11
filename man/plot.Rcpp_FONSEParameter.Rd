@@ -4,8 +4,14 @@
 \alias{plot.Rcpp_FONSEParameter}
 \title{Plot Parameter}
 \usage{
-\method{plot}{Rcpp_FONSEParameter}(x, what = "Mutation", samples = 100,
-  mixture.name = NULL, with.ci = TRUE, ...)
+\method{plot}{Rcpp_FONSEParameter}(
+  x,
+  what = "Mutation",
+  samples = 100,
+  mixture.name = NULL,
+  with.ci = TRUE,
+  ...
+)
 }
 \arguments{
 \item{x}{A parameter object}

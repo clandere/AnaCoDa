@@ -4,28 +4,34 @@
 \alias{initializeGenomeObject}
 \title{Genome Initialization}
 \usage{
-initializeGenomeObject(file, genome = NULL,
-  observed.expression.file = NULL, fasta = TRUE, simulated = FALSE,
-  match.expression.by.id = TRUE, append = FALSE)
+initializeGenomeObject(
+  file,
+  genome = NULL,
+  observed.expression.file = NULL,
+  fasta = TRUE,
+  positional = FALSE,
+  match.expression.by.id = TRUE,
+  append = FALSE
+)
 }
 \arguments{
 \item{file}{A file of coding sequences in fasta or RFPData format}
 
 \item{genome}{A genome object can be passed in to concatenate the input file to it (optional).}
 
-\item{observed.expression.file}{A string containing the location of a file containing
-empirical expression rates (optional).}
+\item{observed.expression.file}{String containing the location of a file containing
+empirical expression rates (optional). Default value is NULL.}
 
-\item{fasta}{A boolean value which decides whether to initialize with a
-fasta file or an RFPData file. (TRUE for fasta, FALSE for RFPData)}
+\item{fasta}{Boolean value indicating whether \code{file} argument is a
+fasta file (TRUE) or an RFPData file (FALSE). Default value is TRUE.}
 
-\item{simulated}{boolean to determine if the data should be treated as a simulated data set (Default = FALSE).}
+\item{positional}{Boolean indicating if the positional information in the RFPData file is necessary. Default value is FALSE}
 
-\item{match.expression.by.id}{If TRUE (default), observed expression values will be assigned by matching sequence identifier.
-If FALSE, observed expression values will be assigned by order.}
+\item{match.expression.by.id}{If TRUE, observed expression values will be assigned by matching sequence identifier. 
+If FALSE, observed expression values will be assigned by order. Default value is TRUE.}
 
-\item{append}{If TRUE (FALSE is default), function will read in additional genome data to append to an existing genome.
-If FALSE, genome data is cleared before reading in data (no preexisting data).}
+\item{append}{If TRUE, function will read in additional genome data to append to an existing genome.
+If FALSE, genome data is cleared before reading in data (no preexisting data). Default value is FALSE.}
 }
 \value{
 This function returns the initialized Genome object.

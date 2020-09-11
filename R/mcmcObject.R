@@ -8,6 +8,7 @@
 #' 
 #' @param adaptive.width Number that determines how often the acceptance/rejection
 #' window should be altered. Default value is 100 samples.
+#' Proportion of MCMC steps where the proposal distribution is adaptive can be set using \code{mcmc$setStepsToAdapt}. The default parameter passed in as -1 uses the full iterations.
 #' 
 #' @param est.expression Boolean that tells whether or not synthesis rate values
 #' should be estimated in the MCMC algorithm run. Default value is TRUE.
@@ -17,6 +18,7 @@
 #' 
 #' @param est.hyper Boolean that tells whether or not hyper parameters
 #' should be estimated in the MCMC algorithm run. Default value is TRUE.
+#' Setting for expression noise parameter sepsilon can be overridden by setting \code{fix.observation.noise} in \code{initializeModelObject()}
 #' 
 #' @param est.mix Boolean that tells whether or not the genes' mixture element
 #' should be estimated in the MCMC algorithm run. Default value is TRUE.
@@ -144,7 +146,13 @@ runMCMC <- function(mcmc, genome, model, ncores = 1, divergence.iteration = 0){
   if (ncores < 1 || !all(ncores == as.integer(ncores))) {
     stop("ncores must be a positive integer\n")
   }
-  mcmc$run(genome, model, ncores, divergence.iteration)
+  if(class(model) == "Rcpp_PANSEModel")
+  {
+    mcmc$run_PANSE(genome, model, ncores, divergence.iteration)
+  } else
+  {
+   mcmc$run(genome, model, ncores, divergence.iteration)
+  }
 }
 
 

@@ -4,13 +4,26 @@
 \alias{initializeParameterObject}
 \title{Initialize Parameter}
 \usage{
-initializeParameterObject(genome = NULL, sphi = NULL,
-  num.mixtures = 1, gene.assignment = NULL,
-  initial.expression.values = NULL, model = "ROC",
-  split.serine = TRUE, mixture.definition = "allUnique",
-  mixture.definition.matrix = NULL, init.with.restart.file = NULL,
-  mutation.prior.sd = 0.35, init.csp.variance = 0.0025,
-  init.sepsilon = 0.1, init.w.obs.phi = FALSE)
+initializeParameterObject(
+  genome = NULL,
+  sphi = NULL,
+  num.mixtures = 1,
+  gene.assignment = NULL,
+  initial.expression.values = NULL,
+  model = "ROC",
+  split.serine = TRUE,
+  mixture.definition = "allUnique",
+  mixture.definition.matrix = NULL,
+  init.with.restart.file = NULL,
+  mutation.prior.mean = 0,
+  mutation.prior.sd = 0.35,
+  propose.by.prior = FALSE,
+  init.csp.variance = 0.0025,
+  init.sepsilon = 0.1,
+  init.w.obs.phi = FALSE,
+  init.initiation.cost = 4,
+  init.partition.function = 1
+)
 }
 \arguments{
 \item{genome}{An object of type Genome necessary for the initialization of the Parameter object.
@@ -29,7 +42,7 @@ It is possible but not advised to leave a mixture element empty.
 The default Value is NULL.}
 
 \item{initial.expression.values}{(Optional) A vector with intial phi values.
-The length of the vector has to equal the number of genes in the Genome object.
+The length of the vector has to equal the number of genes in the Genome object and the order of the genes should match the order of the genes in the Genome.
 The default value is NULL.}
 
 \item{model}{Specifies the model used. Valid options are "ROC", "PA", "PANSE", or "FONSE".
@@ -60,19 +73,32 @@ previous Parameter object.
 If given, all other arguments will be ignored.
 The default value for init.with.restart.file is NULL.}
 
-\item{mutation.prior.sd}{Controlling the standard deviation of the normal 
-prior on the mutation parameters}
+\item{mutation.prior.mean}{Controlling the mean of the normal prior on mutation paramters.
+If passed in as single number (default is 0), this will be the mean value for all categories, for all codons. User may also
+supply a vector with n * 40 values, where n is the number of mutation categories. Future versions will check the number of rows matches
+the number of mutation categories definded by user.}
+
+\item{mutation.prior.sd}{Controlling the standard deviation of the normal prior on the mutation parameters.
+If passed in as single number (default is 0.35), this will be the standard deviation value for all categories, for all codons. User may also
+supply a vector with n * 40 values, where n is the number of mutation categories. Future versions will check the number of rows matches
+the number of mutation categories definded by user.}
+
+\item{propose.by.prior}{Mutation bias parameters will be proposed based on the means and standard deviations set in mutation.prior.mean and mutation.prior.sd}
 
 \item{init.csp.variance}{specifies the initial proposal width for codon specific parameter (default is 0.0025). 
 The proposal width adapts during the runtime to reach a taget acceptance rate of ~0.25}
 
 \item{init.sepsilon}{specifies the initial value for sepsilon. default is 0.1}
 
-\item{init.w.obs.phi}{TRUE: initialize phi values with observed phi values 
+\item{init.w.obs.phi}{If TRUE, initialize phi values with observed phi values 
 (data from RNAseq, mass spectrometry, ribosome footprinting) Default is FALSE. 
 If multiple observed phi values exist for a gene, the geometric mean of these values is used as initial phi.
 When using this function, one should remove any genes with 
 missing phi values, as these genes will not have an initial phi value.}
+
+\item{init.initiation.cost}{FOR FONSE ONLY. Initializes the initiation cost a_1 at this value.}
+
+\item{init.partition.function}{FOR PANSE ONLY. initializes the partition function Z.}
 }
 \value{
 parameter Returns an initialized Parameter object.

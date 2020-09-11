@@ -8,8 +8,10 @@
 class Model
 {
     private:
+
 		double calculatePriorForCodonSpecificParam(Parameter *parameter, std::string grouping, unsigned paramType,
 					bool proposed = false);
+
 
     public:
 		//Constructors & Destructors:
@@ -18,12 +20,13 @@ class Model
         virtual ~Model();
         Model& operator=(const Model& rhs);
 
+        std::string type;
 
         //Likelihood Ratio Functions:
         virtual void calculateLogLikelihoodRatioPerGene(Gene& gene, unsigned geneIndex, unsigned k,
 					double* logProbabilityRatio) = 0;
         virtual void calculateLogLikelihoodRatioPerGroupingPerCategory(std::string grouping, Genome& genome,
-        			std::vector<double> &logAcceptanceRatioForAllMixtures) = 0;
+         			std::vector<double> &logAcceptanceRatioForAllMixtures) = 0;
 		virtual void calculateLogLikelihoodRatioForHyperParameters(Genome &genome, unsigned iteration,
 					std::vector <double> &logProbabilityRatio) = 0;
 
@@ -32,7 +35,7 @@ class Model
 
 
 		//Initialization and Restart Functions:
-		virtual void initTraces(unsigned samples, unsigned num_genes) = 0;
+		virtual void initTraces(unsigned samples, unsigned num_genes, bool estimateSynthesisRate = true) = 0;
 		virtual void writeRestartFile(std::string filename) = 0;
 
 
@@ -88,8 +91,15 @@ class Model
 					bool adapt) = 0;
 		virtual void adaptHyperParameterProposalWidths(unsigned adaptiveWidth, bool adapt) = 0;
 
-
-
+		//noise functions:
+		virtual double getNoiseOffset(unsigned index, bool proposed = false) = 0;
+		virtual double getObservedSynthesisNoise(unsigned index) = 0;
+		virtual double getCurrentNoiseOffsetProposalWidth(unsigned index) = 0;
+		virtual void updateNoiseOffset(unsigned index) = 0;
+		virtual void updateNoiseOffsetTrace(unsigned sample) = 0;
+		virtual void updateObservedSynthesisNoiseTrace(unsigned sample) = 0;
+		virtual void adaptNoiseOffsetProposalWidth(unsigned adaptiveWidth, bool adapt = true) = 0;
+		virtual void updateGibbsSampledHyperParameters(Genome &genome) = 0;
 		//Other Functions:
 		virtual void proposeCodonSpecificParameter() = 0;
 		virtual void proposeHyperParameters() = 0;
@@ -105,7 +115,8 @@ class Model
 		virtual void setCategoryProbability(unsigned mixture, double value) = 0;
 
 		virtual void updateCodonSpecificParameter(std::string grouping) = 0;
-		virtual void updateGibbsSampledHyperParameters(Genome &genome) = 0;
+		virtual void completeUpdateCodonSpecificParameter() = 0;
+		//virtual void updateGibbsSampledHyperParameters(Genome &genome) = 0;
 		virtual void updateAllHyperParameter() = 0;
 		virtual void updateHyperParameter(unsigned hp) = 0;
 
@@ -113,6 +124,9 @@ class Model
 		virtual void printHyperParameters() = 0;
 
 	protected:
+		bool withPhi;
+		bool fix_sEpsilon;
+		
 };
 
 #endif // MODEL_H

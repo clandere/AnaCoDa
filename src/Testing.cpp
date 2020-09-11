@@ -120,7 +120,7 @@ int testSequenceSummary()
 {
     SequenceSummary SS("ATGCTCATTCTCACTGCTGCCTCGTAG");
     std::vector <unsigned> *uVectStar;
-    std::vector <int> iVect;
+    std::vector <unsigned> iVect;
     std::vector <unsigned> uVect;
     int error = 0;
     int globalError = 0;
@@ -1120,7 +1120,7 @@ int testGene()
     //------ init/get/setRFPCount Functions ------//
     //---------------------------------------------//
     testGene.initRFPCount(1);
-    std::vector <int> RFPCounts = testGene.getRFPCount(0);
+    std::vector <unsigned> RFPCounts = testGene.getRFPCount(0);
 
     if (0 != RFPCounts.size())
     {
@@ -1492,12 +1492,12 @@ void testGenomePAHelper(Genome* genome, bool simulated)
     Gene panse2(genomeString2, "TEST002", "No description for PA(NSE) Model");
 
     // RFPCount for TEST001: value[position] = RFPCount
-    std::vector <int> test1Cat1 = {0, 0, 2, 0, 1, 1};
-    std::vector <int> test1Cat2 = {0, 17, 0, 1, -1, -1};
+    std::vector <unsigned> test1Cat1 = {0, 0, 2, 0, 1, 1};
+    std::vector <unsigned> test1Cat2 = {0, 17, 0, 1, 0, 0};
 
     // RFPCount for TEST002: value[position] = RFPCount
-    std::vector <int> test2Cat1 = {1, 1, 0, 0, 1};
-    std::vector <int> test2Cat2 = {2, 0, 2, 3, 6};
+    std::vector <unsigned> test2Cat1 = {1, 1, 0, 0, 1};
+    std::vector <unsigned> test2Cat2 = {2, 0, 2, 3, 6};
 
     std::string codon;
     unsigned index1, index2, index3, index4, index5, index6, index7, index8;

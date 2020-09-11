@@ -4,8 +4,7 @@
 \alias{acfMCMC}
 \title{Autocorrelation function for the likelihood or posterior trace}
 \usage{
-acfMCMC(mcmc, type = "LogPosterior", samples = NULL, lag.max = 40,
-  plot = TRUE)
+acfMCMC(mcmc, type = "LogPosterior", samples = NULL, lag.max = 40, plot = TRUE)
 }
 \arguments{
 \item{mcmc}{object of class MCMC}

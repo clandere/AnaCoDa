@@ -53,9 +53,9 @@ class Gene
 
 		//RFP Functions (for PA and PANSE models) (All tested):
 		void initRFPCount(unsigned numCategories); // Wraps SequenceSummary:initRFPCount()
-		std::vector <int> getRFPCount(unsigned RFPCountColumn = 0u); //Only for unit testing.
+		std::vector <unsigned> getRFPCount(unsigned RFPCountColumn = 0u); //Only for unit testing.
 																	 // Wraps SequenceSummary::getRFPCount()
-		void setRFPCount(std::vector <int> RFPCounts, unsigned RFPCountColumn = 0u); // Wraps SequenceSummary:setRFPCount()
+		void setRFPCount(std::vector <unsigned> RFPCounts, unsigned RFPCountColumn = 0u); // Wraps SequenceSummary:setRFPCount()
 		void initSumRFPCount(unsigned numCategories); // Wraps SequenceSummary:initSumRFPCount()
 		std::array <unsigned, 64> getSumRFPCount(unsigned RFPCountColumn = 0u); //Only for unit testing.
 																		// Wraps SequenceSummary::getSumRFPCount()

@@ -24,6 +24,7 @@ const unsigned Parameter::dEta = 1;
 const unsigned Parameter::dOmega = 1;
 const unsigned Parameter::alp = 0;
 const unsigned Parameter::lmPri = 1;
+const unsigned Parameter::nse = 2;
 
 
 
@@ -119,6 +120,11 @@ Parameter& Parameter::operator=(const Parameter& rhs)
 	numAcceptForCodonSpecificParameters = rhs.numAcceptForCodonSpecificParameters;
 	std_csp = rhs.std_csp;
 	covarianceMatrix = rhs.covarianceMatrix;
+
+	noiseOffset = rhs.noiseOffset;
+	noiseOffset_proposed = rhs.noiseOffset_proposed;
+	std_NoiseOffset = rhs.std_NoiseOffset;
+	numAcceptForNoiseOffset = rhs.numAcceptForNoiseOffset;
 	return *this;
 }
 
@@ -158,7 +164,18 @@ void Parameter::initParameterSet(std::vector<double> _stdDevSynthesisRate, unsig
 #endif
 	}
 
+	for (unsigned i = 0; i < getNumObservedPhiSets(); i++)
+	{
+		noiseOffset[i] = 0.1;
+		noiseOffset_proposed[i] = 0.1;
+		std_NoiseOffset[i] = 0.1;
+		observedSynthesisNoise[i] = 0.1;
+		numAcceptForNoiseOffset[i] = 0;
+	}
+
 	mutationSelectionState = _mutationSelectionState;
+	// Lose one parameter if ser is split into two groups.
+	// This is because one of the 2 codon set is now the reference codon
 	numParam = ((splitSer) ? 40 : 41);
 	numMixtures = _numMixtures;
 
@@ -366,9 +383,37 @@ void Parameter::initBaseValuesFromFile(std::string filename)
 						std_phi[cat - 1].push_back(val);
 					}
 				}
+				else if (variableName == "noiseOffset")
+				{
+					double val;
+					iss.str(tmp);
+					while (iss >> val)
+					{
+						noiseOffset.push_back(val);
+						noiseOffset_proposed.push_back(val);
+					}
+				}
+				else if (variableName == "observedSynthesisNoise")
+				{
+					double val;
+					iss.str(tmp);
+					while (iss >> val)
+					{
+						observedSynthesisNoise.push_back(val);
+					}
+				}
+				else if (variableName == "std_NoiseOffset")
+				{
+					double val;
+					iss.str(tmp);
+					while (iss >> val)
+					{
+						std_NoiseOffset.push_back(val);
+					}
+				}
 			}
 		}
-	
+
 		input.close();
 
 		//initialize all the default Parameter values now.
@@ -377,7 +422,7 @@ void Parameter::initBaseValuesFromFile(std::string filename)
 		bias_stdDevSynthesisRate = 0;
 		bias_phi = 0;
 		//obsPhiSets = 0;
-
+		numAcceptForNoiseOffset.resize(obsPhiSets, 0);
 		numAcceptForSynthesisRate.resize(numSelectionCategories);
 		proposedSynthesisRateLevel.resize(numSelectionCategories);
 		for (unsigned i = 0; i < numSelectionCategories; i++)
@@ -461,7 +506,7 @@ void Parameter::writeBasicRestartFile(std::string filename)
 			else oss <<" ";
 		}
 		if (i % 10 != 0) oss <<"\n";
-	
+
 		oss << ">selectionIsInMixture:\n";
 		for (i = 0; i < selectionIsInMixture.size(); i++)
 		{
@@ -496,6 +541,40 @@ void Parameter::writeBasicRestartFile(std::string filename)
 			}
 			if (j % 10 != 0) oss << "\n";
 		}
+		oss << ">noiseOffset:\n";
+		for (j = 0; j < noiseOffset.size(); j++)
+		{
+			oss << noiseOffset[j];
+			if ((j + 1) % 10 == 0)
+				oss << "\n";
+			else
+				oss << " ";
+		}
+		if (j % 10 != 0)
+			oss << "\n";
+
+		oss << ">observedSynthesisNoise:\n";
+		for (j = 0; j < observedSynthesisNoise.size(); j++)
+		{
+			oss << observedSynthesisNoise[j];
+			if ((j + 1) % 10 == 0)
+				oss << "\n";
+			else
+				oss << " ";
+		}
+		if (j % 10 != 0)
+			oss << "\n";
+		oss << ">std_NoiseOffset:\n";
+		for (j = 0; j < std_NoiseOffset.size(); j++)
+		{
+			oss << std_NoiseOffset[j];
+			if ((j + 1) % 10 == 0)
+				oss << "\n";
+			else
+				oss << " ";
+		}
+		if (j % 10 != 0)
+			oss << "\n";
 	}
 	my_print("End writing restart file\n");
 
@@ -562,11 +641,12 @@ void Parameter::InitializeSynthesisRate(Genome& genome, double sd_phi)
 	double* expression = new double[genomeSize]();
 	int* index = new int[genomeSize]();
 
+
 	for (unsigned i = 0u; i < genomeSize; i++)
 	{
 		index[i] = i;
 		//This used to be maxGrouping instead of 22, but PA model will not work that way
-		SCUOValues[i] = calculateSCUO( genome.getGene(i), 22 );
+		SCUOValues[i] = calculateSCUO( genome.getGene(i));
 		expression[i] = Parameter::randLogNorm(-(sd_phi * sd_phi) / 2, sd_phi);
 	}
 
@@ -593,11 +673,10 @@ void Parameter::InitializeSynthesisRate(Genome& genome, double sd_phi)
  * Arguments: //TODO
 */
 void Parameter::InitializeSynthesisRate(double sd_phi)
-{
-	unsigned numGenes = (unsigned)currentSynthesisRateLevel[1].size();
+{	unsigned genomeSize = (unsigned)currentSynthesisRateLevel[0].size();
 	for (unsigned category = 0u; category < numSelectionCategories; category++)
 	{
-		for (unsigned i = 0u; i < numGenes; i++)
+		for (unsigned i = 0u; i < genomeSize; i++)
 		{
 			currentSynthesisRateLevel[category][i] = Parameter::randLogNorm(-(sd_phi * sd_phi) / 2, sd_phi);
 			std_phi[category][i] = 0.1;
@@ -624,7 +703,9 @@ void Parameter::InitializeSynthesisRate(std::vector<double> expression)
 	}
 }
 
-
+//' @name readPhiValue
+//' @title Read synthesis rate values from file. File should be two column file <gene_id,phi> and is expected to have a header row
+//' @param filename name of file to be read
 std::vector <double> Parameter::readPhiValues(std::string filename)
 {
 	std::size_t pos;
@@ -837,6 +918,10 @@ unsigned Parameter::getNumAcceptForCspForIndex(unsigned i)
  * Arguments: vector of strings representing a group list
  * Sets the group list to the argument after clearing the group list, adding elements only if they have no errors.
 */
+
+//' @name setGroupList
+//' @title Set amino acids (ROC, FONSE) or codons (PA, PANSE) for which parameters will be estimated. Note that non-default groupLists are still in beta testing and should be used with caution.
+//' @param List of strings epresenting groups for parameters to be estimated. Should be one letter amino acid (ROC, FONSE) or list of sense codons (PA, PANSE). 
 void Parameter::setGroupList(std::vector <std::string> gl)
 {
 	groupList.clear();
@@ -861,6 +946,9 @@ std::string Parameter::getGrouping(unsigned index)
  * Arguments: None
  * Returns the group list as a vector of strings.
 */
+
+//' @name getGroupList
+//' @title Get amino acids (ROC, FONSE) or codons (PA, PANSE) for which parameters will be estimated
 std::vector<std::string> Parameter::getGroupList()
 {
 	return groupList;
@@ -884,6 +972,11 @@ unsigned Parameter::getGroupListSize()
 //---------- stdDevSynthesisRate Functions -----------//
 //----------------------------------------------------//
 
+void Parameter::fixStdDevSynthesis()
+{
+	fix_stdDevSynthesis = true;
+}
+
 
 double Parameter::getStdDevSynthesisRate(unsigned selectionCategory, bool proposed)
 {
@@ -894,8 +987,15 @@ double Parameter::getStdDevSynthesisRate(unsigned selectionCategory, bool propos
 void Parameter::proposeStdDevSynthesisRate()
 {
 	for (unsigned i = 0u; i < numSelectionCategories; i++)
-	{
-		stdDevSynthesisRate_proposed[i] = std::exp(randNorm(std::log(stdDevSynthesisRate[i]), std_stdDevSynthesisRate));
+	{	
+		if (!fix_stdDevSynthesis)
+		{
+			stdDevSynthesisRate_proposed[i] = std::exp(randNorm(std::log(stdDevSynthesisRate[i]), std_stdDevSynthesisRate));
+		}
+		else
+		{
+			stdDevSynthesisRate_proposed[i] = stdDevSynthesisRate[i];
+		}
 	}
 }
 
@@ -950,7 +1050,6 @@ double Parameter::getStdCspForIndex(unsigned i)
 //-----------------------------------------------//
 //---------- Synthesis Rate Functions -----------//
 //-----------------------------------------------//
-
 
 double Parameter::getSynthesisRate(unsigned geneIndex, unsigned mixtureElement, bool proposed)
 {
@@ -1102,9 +1201,19 @@ unsigned Parameter::getNumObservedPhiSets()
  * Arguments: unsigned value representing a new number of phi set groupings
  * Sets the observed number of phi sets to the argument given.
 */
+// void Parameter::setNumObservedPhiSets(unsigned _phiGroupings)
+// {
+// 	obsPhiSets = _phiGroupings;
+// }
+
 void Parameter::setNumObservedPhiSets(unsigned _phiGroupings)
 {
 	obsPhiSets = _phiGroupings;
+	noiseOffset.resize(obsPhiSets, 0.1);
+	noiseOffset_proposed.resize(obsPhiSets, 0.1);
+	std_NoiseOffset.resize(obsPhiSets, 0.1);
+	numAcceptForNoiseOffset.resize(obsPhiSets, 0);
+	observedSynthesisNoise.resize(obsPhiSets, 1.0);
 }
 
 
@@ -1166,6 +1275,8 @@ std::vector<std::vector<double>> Parameter::calculateSelectionCoefficients(unsig
 //--------------------------------------//
 
 
+//' @name getTraceObject
+//' @title Get Trace object stored by a Parameter object. Useful for plotting certain parameter traces.
 Trace& Parameter::getTraceObject()
 {
 	return traces;
@@ -1176,6 +1287,24 @@ void Parameter::setTraceObject(Trace _trace)
 {
 	traces = _trace;
 }
+
+void Parameter::updateObservedSynthesisNoiseTraces(unsigned sample)
+{
+	for (unsigned i = 0; i < observedSynthesisNoise.size(); i++)
+	{
+		traces.updateObservedSynthesisNoiseTrace(i, sample, observedSynthesisNoise[i]);
+	}
+}
+
+
+void Parameter::updateNoiseOffsetTraces(unsigned sample)
+{
+	for (unsigned i = 0; i < noiseOffset.size(); i++)
+	{
+		traces.updateSynthesisOffsetTrace(i, sample, noiseOffset[i]);
+	}
+}
+
 
 
 void Parameter::updateStdDevSynthesisRateTrace(unsigned sample)
@@ -1210,7 +1339,28 @@ void Parameter::updateMixtureProbabilitiesTrace(unsigned samples)
 //----------------------------------------------//
 
 
-//In ROC: adjust s_phi proposal distribution
+void Parameter::adaptNoiseOffsetProposalWidth(unsigned adaptationWidth, bool adapt)
+{
+	for (unsigned i = 0; i < getNumObservedPhiSets(); i++)
+	{
+		double acceptanceLevel = numAcceptForNoiseOffset[i] / (double)adaptationWidth;
+		traces.updateSynthesisOffsetAcceptanceRateTrace(i, acceptanceLevel);
+		if (adapt)
+		{
+			if (acceptanceLevel < 0.2)
+				std_NoiseOffset[i] *= 0.8;
+			if (acceptanceLevel > 0.3)
+				std_NoiseOffset[i] *= 1.2;
+
+			numAcceptForNoiseOffset[i] = 0u;
+		}
+	}
+}
+
+
+
+
+//Adjust s_phi proposal distribution
 void Parameter::adaptStdDevSynthesisRateProposalWidth(unsigned adaptationWidth, bool adapt)
 {
 	double acceptanceLevel = (double)numAcceptForStdDevSynthesisRate / (double)adaptationWidth;
@@ -1240,15 +1390,15 @@ void Parameter::adaptSynthesisRateProposalWidth(unsigned adaptationWidth, bool a
 
 	double acceptanceTargetLow = 0.225; //below this value factor adjustment is applied
 	double acceptanceTargetHigh = 0.325; //above this value factor adjustment is applied
-	double factorCriteriaLow; 
+	double factorCriteriaLow;
 	double factorCriteriaHigh;
 	double adjustFactorLow = 0.8; //factor by which to reduce proposal widths
 	double adjustFactorHigh = 1.3; //factor by which to increase proposal widths
-	double adjustFactor; //variable assigned value of either adjustFactorLow or adjustFactorHigh depending on acceptance rate
+	double adjustFactor = 1.0; //variable assigned value of either adjustFactorLow or adjustFactorHigh depending on acceptance rate
 
 	factorCriteriaLow = acceptanceTargetLow;
 	factorCriteriaHigh = acceptanceTargetHigh;
-	  
+
 	for (unsigned cat = 0u; cat < numSelectionCategories; cat++)
 	{
 		unsigned numGenes = (unsigned)numAcceptForSynthesisRate[cat].size();
@@ -1266,7 +1416,7 @@ void Parameter::adaptSynthesisRateProposalWidth(unsigned adaptationWidth, bool a
 				if (acceptanceLevel < acceptanceTargetLow)
 				{
 					std_phi[cat][i] *= adjustFactorLow;
-			
+
 				}
 				if (acceptanceLevel > acceptanceTargetHigh)
 				{
@@ -1299,12 +1449,12 @@ void Parameter::adaptCodonSpecificParameterProposalWidth(unsigned adaptationWidt
   double acceptanceTargetLow = 0.225; //below this value weighted sum adjustment is applied, was 0.2
   double acceptanceTargetHigh = 0.325;///above this value weighted sum adjustment is applied, was 0.3
   double diffFactorAdjust = 0.05; //sets when multiplication factor adjustment is applied, was 0.1 and 0.0, respectively
-  double factorCriteriaLow; 
+  double factorCriteriaLow;
   double factorCriteriaHigh;
   double adjustFactorLow = 0.8; //factor by which to reduce proposal widths
-  double adjustFactorHigh = 1.3; //factor by which to increase proposal widths
-  double adjustFactor; //variable assigned value of either adjustFactorLow or adjustFactorHigh
-  
+  double adjustFactorHigh = 1.2; //factor by which to increase proposal widths
+  double adjustFactor = 1.0; //variable assigned value of either adjustFactorLow or adjustFactorHigh
+
   factorCriteriaLow = acceptanceTargetLow - diffFactorAdjust;  //below this value weighted sum and factor adjustments are applied
   factorCriteriaHigh = acceptanceTargetHigh + diffFactorAdjust;  //above this value weighted sum and factor adjustments are applied
 
@@ -1318,30 +1468,27 @@ void Parameter::adaptCodonSpecificParameterProposalWidth(unsigned adaptationWidt
   my_print("\tAA\tAcc.Rat\n"); //Prop.Width\n";
 
   for (unsigned i = 0; i < groupList.size(); i++) //cycle through all of the aa
-    {
-      std::string aa = groupList[i];
-      unsigned aaIndex = SequenceSummary::AAToAAIndex(aa);
-      double acceptanceLevel = (double)numAcceptForCodonSpecificParameters[aaIndex] / (double)adaptationWidth;
+  {
+  	std::string aa = groupList[i];
+    unsigned aaIndex = SequenceSummary::AAToAAIndex(aa);
+    double acceptanceLevel = (double)numAcceptForCodonSpecificParameters[aaIndex] / (double)adaptationWidth;
 
-      my_print("\t%:\t%\n", aa.c_str(), acceptanceLevel);
-		
-      traces.updateCodonSpecificAcceptanceRateTrace(aaIndex, acceptanceLevel);
+    my_print("\t%:\t%\n", aa.c_str(), acceptanceLevel);
 
-      unsigned aaStart, aaEnd;
-      SequenceSummary::AAToCodonRange(aa, aaStart, aaEnd, true);
+    traces.updateCodonSpecificAcceptanceRateTrace(aaIndex, acceptanceLevel);
 
-      //Evaluate current acceptance ratio  performance 
-      if (acceptanceLevel < factorCriteriaLow) acceptanceUnder++;
-      else if (acceptanceLevel > factorCriteriaHigh) acceptanceOver++;
-      
-      if (adapt)
+    unsigned aaStart, aaEnd;
+    SequenceSummary::AAToCodonRange(aa, aaStart, aaEnd, true);
+
+      //Evaluate current acceptance ratio  performance
+    if (acceptanceLevel < factorCriteriaLow) acceptanceUnder++;
+    else if (acceptanceLevel > factorCriteriaHigh) acceptanceOver++;
+
+    if (adapt)
 	{
-
-
-	  if( (acceptanceLevel < acceptanceTargetLow) || (acceptanceLevel > acceptanceTargetHigh) )// adjust proposal width
-	    {	    
-
-	      //Update cov matrix based on previous window to improve efficiency of sampling
+		if( (acceptanceLevel < acceptanceTargetLow) || (acceptanceLevel > acceptanceTargetHigh) )// adjust proposal width
+	  	{
+	  	  //Update cov matrix based on previous window to improve efficiency of sampling
 	      CovarianceMatrix covcurr(covarianceMatrix[aaIndex].getNumVariates());
 	      covcurr.calculateSampleCovariance(*traces.getCodonSpecificParameterTrace(), aa, samples, adaptiveStepCurr);
 	      CovarianceMatrix covprev = covarianceMatrix[aaIndex];
@@ -1352,59 +1499,178 @@ void Parameter::adaptCodonSpecificParameterProposalWidth(unsigned adaptationWidt
 	      //The is approach was commented out and above code uncommented to replace it in commit ec63bb21a1e9 (2016).  Should remove
 	      //covarianceMatrix[aaIndex].calculateSampleCovariance(*traces.getCodonSpecificParameterTrace(), aa, samples, adaptiveStepCurr);
 
-	      // define adjustFactor 
-	      if (acceptanceLevel < factorCriteriaLow) 
-		{
-		  adjustFactor = adjustFactorLow; 
-		}
+	      // define adjustFactor
+	      if (acceptanceLevel < factorCriteriaLow)
+	      {
+		  	adjustFactor = adjustFactorLow;
+		  }
 	      else if(acceptanceLevel > factorCriteriaHigh)
-		{
-		  adjustFactor = adjustFactorHigh; 
-		}
+	      {
+		  	adjustFactor = adjustFactorHigh;
+		  }
 	      else //Don't adjust
-		{
-		  adjustFactor = 1.0;
-		}
-	    
-
-	      if( adjustFactor != 1.0 )
-		{
-		
-		for (unsigned k = aaStart; k < aaEnd; k++)
-		  { //cycle through codons
-
-		    //Adjust proposal width for codon specific parameters 
-		    std_csp[k] *= adjustFactor;
-
-		    //Adjust widths if using cov matrix			      
-		    covarianceMatrix[aaIndex] *= adjustFactor;
+	      {
+		  	adjustFactor = 1.0;
 		  }
 
-	      }
-	  
-	      //Decomposing of cov matrix to convert iid samples to covarying samples using matrix decomposition
-	      //The decomposed matrix is used in the proposal of new samples
-	      covarianceMatrix[aaIndex].choleskyDecomposition(); 
-	    }// end adjust loop
+		 if( adjustFactor != 1.0 )
+		 {
+		 
+		    //Adjust proposal width for codon specific parameters
+		   //	std_csp[k] *= adjustFactor;
+
+		    //Adjust widths if using cov matrix
+		   	covarianceMatrix[aaIndex] *= adjustFactor;
+	  	   
+		 }
+
+		      //Decomposing of cov matrix to convert iid samples to covarying samples using matrix decomposition
+		      //The decomposed matrix is used in the proposal of new samples
+		 covarianceMatrix[aaIndex].choleskyDecomposition();
+		}// end adjust loop
 	} // end if(adapt)
-      
-      numAcceptForCodonSpecificParameters[aaIndex] = 0u;
-    }
 
-  my_print("Acceptance rate for CSP Matrices:\n");
-  my_print("Target range: %-% \n", acceptanceTargetLow, acceptanceTargetHigh );
-  my_print("Factor Adjustment range: < % or > % \n", factorCriteriaLow, factorCriteriaHigh );
-  my_print("\t acceptance rates below lower target of %: %\n", factorCriteriaLow, acceptanceUnder);
-  my_print("\t acceptance rate above upper target of %: %\n", factorCriteriaHigh, acceptanceOver);
-
-
-  my_print("\n");
+	numAcceptForCodonSpecificParameters[aaIndex] = 0u;
+   }
 }
+
+
+//------------------------------------------------------//
+//---------- observedSynthesisNoise Functions ----------//
+//------------------------------------------------------//
+
+
+double Parameter::getObservedSynthesisNoise(unsigned index)
+{
+	return observedSynthesisNoise[index];
+}
+
+
+void Parameter::setObservedSynthesisNoise(unsigned index, double se)
+{
+	observedSynthesisNoise[index] = se;
+}
+
+void Parameter::setInitialValuesForSepsilon(std::vector<double> seps)
+{
+	if (seps.size() == observedSynthesisNoise.size())
+	{
+		for (unsigned i = 0; i < observedSynthesisNoise.size(); i++)
+		{
+			observedSynthesisNoise[i] = seps[i];
+		}
+	}
+	else
+	{
+		my_printError("Parameter::setInitialValuesForSepsilon number of initial values (%) does not match number of expression sets (%)",
+					  seps.size(), observedSynthesisNoise.size());
+	}
+}
+
+
+
+
+
+//-------------------------------------------//
+//---------- noiseOffset Functions ----------//
+//-------------------------------------------//
+
+
+double Parameter::getNoiseOffset(unsigned index, bool proposed)
+{
+	return (proposed ? noiseOffset_proposed[index] : noiseOffset[index]);
+}
+
+
+double Parameter::getCurrentNoiseOffsetProposalWidth(unsigned index)
+{
+	return std_NoiseOffset[index];
+}
+
+
+void Parameter::proposeNoiseOffset()
+{
+	for (unsigned i = 0; i < getNumObservedPhiSets(); i++)
+	{
+		noiseOffset_proposed[i] = randNorm(noiseOffset[i], std_NoiseOffset[i]);
+	}
+}
+
+
+void Parameter::setNoiseOffset(unsigned index, double _noiseOffset)
+{
+	noiseOffset[index] = _noiseOffset;
+}
+
+
+void Parameter::updateNoiseOffset(unsigned index)
+{
+	noiseOffset[index] = noiseOffset_proposed[index];
+	numAcceptForNoiseOffset[index]++;
+}
+
 
 
 //------------------------------------------------------------------//
 //---------- Posterior, Variance, and Estimates Functions ----------//
 //------------------------------------------------------------------//
+
+
+double Parameter::getNoiseOffsetPosteriorMean(unsigned index, unsigned samples)
+{
+	double posteriorMean = 0.0;
+	std::vector<double> NoiseOffsetTrace = traces.getSynthesisOffsetTrace(index);
+	unsigned traceLength = lastIteration;
+
+	if (samples > traceLength)
+	{
+		my_printError("Warning in Parameter::getNoiseOffsetPosteriorMean throws: Number of anticipated samples ");
+		my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n", samples, traceLength);
+
+		samples = traceLength;
+	}
+	unsigned start = traceLength - samples;
+
+	for (unsigned i = start; i < traceLength; i++)
+		posteriorMean += NoiseOffsetTrace[i];
+
+	return posteriorMean / (double)samples;
+}
+
+//' @name getNoiseOffsetVariance
+//' @title Calculate variance of noise offset parameter used when fitting model with empirical estimates of synthesis rates (ie. withPhi fits)
+//' @param index mixture index to use. Should be number between 0 and n-1, where n is number of mixtures
+//' @param samples number of samples over which to calculate variance
+//' @param unbiased If TRUE, should calculate variance using unbiased (N-1). Otherwise, used biased (N) correction
+//' @return returns variance for noise offset
+
+double Parameter::getNoiseOffsetVariance(unsigned index, unsigned samples, bool unbiased)
+{
+	std::vector<double> NoiseOffsetTrace = traces.getSynthesisOffsetTrace(index);
+	unsigned traceLength = lastIteration;
+	if (samples > traceLength)
+	{
+		my_printError("Warning in Parameter::getNoiseOffsetVariance throws: Number of anticipated samples ");
+		my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n", samples, traceLength);
+
+		samples = traceLength;
+	}
+	double posteriorMean = getNoiseOffsetPosteriorMean(index, samples);
+
+	double posteriorVariance = 0.0;
+
+	unsigned start = traceLength - samples;
+	for (unsigned i = start; i < traceLength; i++)
+	{
+		double difference = NoiseOffsetTrace[i] - posteriorMean;
+		posteriorVariance += difference * difference;
+	}
+	double normalizationTerm = unbiased ? (1 / ((double)samples - 1.0)) : (1 / (double)samples);
+	return normalizationTerm * posteriorVariance;
+}
+
+
+
 
 
 /* getStdDevSynthesisRatePosteriorMean (RCPP EXPOSED)
@@ -1413,6 +1679,12 @@ void Parameter::adaptCodonSpecificParameterProposalWidth(unsigned adaptationWidt
  * This is calculated by simply gathering a number of traces from the end of the entire trace (up to all of it) to the end
  * of the standard deviation synthesis rate trace, and then getting the mean of these values.
 */
+
+//' @name getStdDevSynthesisRatePosteriorMean
+//' @title Calculate posterior mean of standard deviation parameter of lognormal describing distribution of synthesis rates
+//' @param samples number of samples over which to calculate posterior mean
+//' @param mixture mixture index to use. Should be number between 0 and n, where n is number of mixtures
+//' @return returns posterior mean for standard deviation of lognormal distribution of synthesis rates
 double Parameter::getStdDevSynthesisRatePosteriorMean(unsigned samples, unsigned mixture)
 {
 	double posteriorMean = 0.0;
@@ -1422,7 +1694,7 @@ double Parameter::getStdDevSynthesisRatePosteriorMean(unsigned samples, unsigned
 
 	if (samples > traceLength)
 	{
-		my_printError("Warning in ROCParameter::getStdDevSynthesisRatePosteriorMean throws: Number of anticipated samples");
+		my_printError("Warning in Parameter::getStdDevSynthesisRatePosteriorMean throws: Number of anticipated samples");
 		my_printError("(%) is greater than the length of the available trace (%).", samples, traceLength);
 		my_printError("Whole trace is used for posterior estimate!\n");
 
@@ -1450,29 +1722,37 @@ double Parameter::getSynthesisRatePosteriorMean(unsigned samples, unsigned geneI
 {
 	float posteriorMean = 0.0;
 	std::vector<float> synthesisRateTrace = traces.getSynthesisRateTraceForGene(geneIndex);
-	unsigned traceLength = lastIteration + 1;
-	if (samples > lastIteration)
+	if (synthesisRateTrace.size() == 1)
 	{
-		my_printError("Warning in ROCParameter::getSynthesisRatePosteriorMean throws: Number of anticipated samples");
-		my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n",
-					  samples, traceLength);
-
-		samples = traceLength;
+		posteriorMean = synthesisRateTrace[0];
 	}
-	unsigned start = traceLength - samples;
-
-	if(log_scale)
+	else
 	{
+		unsigned traceLength = lastIteration + 1;
+		if (samples > lastIteration)
+		{
+			my_printError("Warning in Parameter::getSynthesisRatePosteriorMean throws: Number of anticipated samples");
+			my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n",
+						  samples, traceLength);
+
+			samples = traceLength;
+		}
+		unsigned start = traceLength - samples;
+
+		if(log_scale)
+		{
+			for (unsigned i = start; i < traceLength; i++)
+			{
+				synthesisRateTrace[i] = std::log10(synthesisRateTrace[i]);
+			}
+		}
 		for (unsigned i = start; i < traceLength; i++)
 		{
-			synthesisRateTrace[i] = std::log10(synthesisRateTrace[i]);
+				posteriorMean += synthesisRateTrace[i];
 		}
+		posteriorMean = posteriorMean/float(samples);
 	}
-	for (unsigned i = start; i < traceLength; i++)
-	{
-			posteriorMean += synthesisRateTrace[i];
-	}
-	return posteriorMean / (float)samples;
+	return posteriorMean;
 }
 
 
@@ -1488,7 +1768,7 @@ double Parameter::getSynthesisRatePosteriorMean(unsigned samples, unsigned geneI
  * Wrapped by getCodonSpecificPosteriorMeanForCodon on the R-side.
 */
 double Parameter::getCodonSpecificPosteriorMean(unsigned element, unsigned samples, std::string &codon,
-	unsigned paramType, bool withoutReference, bool byGene)
+	unsigned paramType, bool withoutReference, bool byGene, bool log_scale)
 {
 	double posteriorMean = 0.0;
 	std::vector<float> parameterTrace;
@@ -1515,12 +1795,26 @@ double Parameter::getCodonSpecificPosteriorMean(unsigned element, unsigned sampl
 	unsigned start = traceLength - samples;
 
 	for (unsigned i = start; i < traceLength; i++)
-		posteriorMean += parameterTrace[i];
+	{	
+		if (log_scale)
+		{
+			posteriorMean += std::log10(parameterTrace[i]);
+		}
+		else
+		{
+			posteriorMean += parameterTrace[i];
+		}
+	}
 
 	return posteriorMean / (double)samples;
 }
 
-
+//' @name getStdDevSynthesisRateVariance
+//' @title Calculate variance of standard deviation parameter of lognormal describing distribution of synthesis rates
+//' @param samples number of samples over which to calculate variance
+//' @param mixture mixture index to use. Should be number between 0 and n, where n is number of mixtures
+//' @param unbiased If TRUE, should calculate variance using unbiased (N-1). Otherwise, used biased (N) correction
+//' @return returns variance for standard deviation of lognormal distribution of synthesis rates
 double Parameter::getStdDevSynthesisRateVariance(unsigned samples, unsigned mixture, bool unbiased)
 {
 	unsigned selectionCategory = getSelectionCategory(mixture);
@@ -1551,46 +1845,50 @@ double Parameter::getStdDevSynthesisRateVariance(unsigned samples, unsigned mixt
 
 double Parameter::getSynthesisRateVariance(unsigned samples, unsigned geneIndex, bool unbiased, bool log_scale)
 {
+	double variance = 0.0;
 	std::vector<float> synthesisRateTrace = traces.getSynthesisRateTraceForGene(geneIndex);
-
-	unsigned traceLength = lastIteration + 1;
-	if (samples > traceLength)
+	if (synthesisRateTrace.size() != 1)
 	{
-		my_printError("Warning in Parameter::getSynthesisRateVariance throws: Number of anticipated samples ");
-		my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n",
-					  samples, traceLength);
-
-		samples = traceLength;
-	}
-	unsigned start = traceLength - samples;
-	if(log_scale)
-	{
-		for (unsigned i = start; i < traceLength; i++)
+		unsigned traceLength = lastIteration + 1;
+		if (samples > traceLength)
 		{
-			synthesisRateTrace[i] = std::log10(synthesisRateTrace[i]);
+			my_printError("Warning in Parameter::getSynthesisRateVariance throws: Number of anticipated samples ");
+			my_printError("(%) is greater than the length of the available trace (%). Whole trace is used for posterior estimate! \n",
+						  samples, traceLength);
+
+			samples = traceLength;
 		}
-	}
-
-	// NOTE: The loss of precision here is acceptable for storage purposes.
-	float posteriorMean = (float)getSynthesisRatePosteriorMean(samples, geneIndex, log_scale);
-
-	float posteriorVariance = 0.0;
-	if (!std::isnan(posteriorMean))
-	{
-		double difference;
-		for (unsigned i = start; i < traceLength; i++)
+		unsigned start = traceLength - samples;
+		if(log_scale)
 		{
-			difference = synthesisRateTrace[i] - posteriorMean;
-			posteriorVariance += difference * difference;
+			for (unsigned i = start; i < traceLength; i++)
+			{
+				synthesisRateTrace[i] = std::log10(synthesisRateTrace[i]);
+			}
 		}
+
+		// NOTE: The loss of precision here is acceptable for storage purposes.
+		float posteriorMean = (float)getSynthesisRatePosteriorMean(samples, geneIndex, log_scale);
+
+		float posteriorVariance = 0.0;
+		if (!std::isnan(posteriorMean))
+		{
+			double difference;
+			for (unsigned i = start; i < traceLength; i++)
+			{
+				difference = synthesisRateTrace[i] - posteriorMean;
+				posteriorVariance += difference * difference;
+			}
+		}
+		float normalizationTerm = unbiased ? (1.0 / ((float)samples - 1.0)) : (1.0 / (float)samples);
+		variance = normalizationTerm * posteriorVariance;
 	}
-	float normalizationTerm = unbiased ? (1.0 / ((float)samples - 1.0)) : (1.0 / (float)samples);
-	return normalizationTerm * posteriorVariance;
+	return variance;
 }
 
 
 double Parameter::getCodonSpecificVariance(unsigned mixtureElement, unsigned samples, std::string &codon,
-	unsigned paramType, bool unbiased, bool withoutReference)
+	unsigned paramType, bool unbiased, bool withoutReference, bool log_scale)
 {
 	if (unbiased && samples == 1)
 	{
@@ -1611,7 +1909,7 @@ double Parameter::getCodonSpecificVariance(unsigned mixtureElement, unsigned sam
 		samples = traceLength;
 	}
 
-	double posteriorMean = getCodonSpecificPosteriorMean(mixtureElement, samples, codon, paramType, withoutReference, false);
+	double posteriorMean = getCodonSpecificPosteriorMean(mixtureElement, samples, codon, paramType, withoutReference, false,log_scale);
 
 	double posteriorVariance = 0.0;
 
@@ -1619,7 +1917,14 @@ double Parameter::getCodonSpecificVariance(unsigned mixtureElement, unsigned sam
 	double difference;
 	for (unsigned i = start; i < traceLength; i++)
 	{
-		difference = parameterTrace[i] - posteriorMean;
+		if (log_scale)
+		{
+			difference = std::log10(parameterTrace[i]) - posteriorMean;
+		}
+		else
+		{
+			difference = parameterTrace[i] - posteriorMean;
+		}
 		posteriorVariance += difference * difference;
 	}
 	double normalizationTerm = unbiased ? (1.0 / ((double)samples - 1.0)) : (1.0 / (double)samples);
@@ -1630,7 +1935,7 @@ double Parameter::getCodonSpecificVariance(unsigned mixtureElement, unsigned sam
 
 std::vector<double> Parameter::calculateQuantile(std::vector<float> &parameterTrace, unsigned samples, std::vector<double> probs, bool log_scale)
 {
-    unsigned traceLength = lastIteration + 1u;
+  unsigned traceLength = lastIteration + 1u;
     //unsigned traceEnd = parameterTrace.size() - (parameterTrace.size() - lastIteration); //currently unused
 	if (samples > traceLength)
 	{
@@ -1640,7 +1945,7 @@ std::vector<double> Parameter::calculateQuantile(std::vector<float> &parameterTr
 
 		samples = traceLength;
 	}
-    
+
     std::vector<double> samplesTrace(parameterTrace.begin() + (lastIteration - samples) + 1, (parameterTrace.begin() + lastIteration + 1));
     std::sort(samplesTrace.begin(), samplesTrace.end());
 
@@ -1656,40 +1961,56 @@ std::vector<double> Parameter::calculateQuantile(std::vector<float> &parameterTr
     double N = samplesTrace.size();
     for (unsigned i = 0u; i < probs.size(); i++)
     {
-	if( probs[i] < (2.0/3.0)/(N+(1.0/3.0)) )
-	{
-		retVec[i] = samplesTrace[0]; // first element
-	}
-	else if( probs[i] >= (N-(1.0/3.0))/(N+(1.0/3.0)) )
-	{
-		retVec[i] = samplesTrace[N - 1]; // last element
-	}
-	else
-	{
-		double h = (N*probs[i]) + (probs[i] + 1.0)/3.0;
-		int low = std::floor(h);
-		retVec[i] = samplesTrace[low] + (h - low)*(samplesTrace[low+1] - samplesTrace[low]);
-	}
+		if( probs[i] < (2.0/3.0)/(N+(1.0/3.0)) )
+		{
+			retVec[i] = samplesTrace[0]; // first element
+		}
+		else if( probs[i] >= (N-(1.0/3.0))/(N+(1.0/3.0)) )
+		{
+			retVec[i] = samplesTrace[N - 1]; // last element
+		}
+		else
+		{
+			double h = (N*probs[i]) + (probs[i] + 1.0)/3.0;
+			int low = std::floor(h);
+			retVec[i] = samplesTrace[low] + (h - low)*(samplesTrace[low+1] - samplesTrace[low]);
+		}
     }
     return retVec;
 }
 
 std::vector<double> Parameter::getExpressionQuantile(unsigned samples, unsigned geneIndex, std::vector<double> probs, bool log_scale)
 {
+	std::vector<double> quantile(probs.size());
 	std::vector<float> parameterTrace = traces.getSynthesisRateTraceForGene(geneIndex);
-	return calculateQuantile(parameterTrace, samples, probs, log_scale);
+	if (parameterTrace.size() == 1)
+	{
+		for (int i = 0; i < probs.size();i++)
+		{
+			quantile[i] = parameterTrace[0];
+		}
+	}
+	else
+	{
+		quantile = calculateQuantile(parameterTrace, samples, probs, log_scale);
+	}
+	return quantile;
 }
 
 std::vector<double> Parameter::getCodonSpecificQuantile(unsigned mixtureElement, unsigned samples, std::string &codon,
-	unsigned paramType, std::vector<double> probs, bool withoutReference)
+	unsigned paramType, std::vector<double> probs, bool withoutReference, bool log_scale)
 {
  	std::vector<float> parameterTrace = traces.getCodonSpecificParameterTraceByMixtureElementForCodon(
 		mixtureElement, codon, paramType, withoutReference);
-    
-	return calculateQuantile(parameterTrace, samples, probs, false);
+
+	return calculateQuantile(parameterTrace, samples, probs, log_scale);
 }
 
-
+//' @name getEstimatedMixtureAssignment
+//' @title Get estimated mixture assignment for gene
+//' @param samples number of samples over which to calculate mixture assignment
+//' @param geneIndex corresponding index of gene in genome. Should be a number between 0 and length(genome) - 1. 
+//' @return mixture returns value between 0 and n, where n is number of mixtures
 unsigned Parameter::getEstimatedMixtureAssignment(unsigned samples, unsigned geneIndex)
 {
 	unsigned rv = 0u;
@@ -1785,11 +2106,12 @@ int Parameter::pivotPair(double a[], int b[], int first, int last)
 // Wan et al. CodonO: a new informatics method for measuring synonymous codon usage bias within and across genomes
 // International Journal of General Systems, Vol. 35, No. 1, February 2006, 109–125
 // http://www.tandfonline.com/doi/pdf/10.1080/03081070500502967 */
-double Parameter::calculateSCUO(Gene& gene, unsigned maxAA)
+double Parameter::calculateSCUO(Gene& gene)
 {
 	SequenceSummary *sequenceSummary = gene.getSequenceSummary();
 
 	double totalDegenerateAACount = 0.0;
+	unsigned maxAA = (SequenceSummary::AminoAcidArray).size();
 	for (unsigned i = 0u; i < maxAA; i++)
 	{
 		std::string curAA = SequenceSummary::AminoAcidArray[i];
@@ -2082,19 +2404,27 @@ double Parameter::densityLogNorm(double x, double mean, double sd, bool log)
 //---------- Initialization and Restart Functions --------------//
 //--------------------------------------------------------------//
 
+//' @name initializeSynthesisRateByGenome
+//' @title Initialize synthesis rates using SCUO values calcuated from the genome
+//' @param genome a Genome object
 
-void Parameter::initializeSynthesisRateByGenome(Genome& genome, double sd_phi)
+void Parameter::initializeSynthesisRateByGenome(Genome& genome,double sd_phi)
 {
-	InitializeSynthesisRate(genome, sd_phi);
+	InitializeSynthesisRate(genome,sd_phi);
 }
 
+//' @name initializeSynthesisRateByRandom
+//' @title Initialize synthesis rates by drawing a from a lognormal distribution with mean = -(sd_phi)^2/2 and sd = sd_phi
+//' @param sd_phi a positive value which will be the standard deviation of the lognormal distribution
 
 void Parameter::initializeSynthesisRateByRandom(double sd_phi)
 {
 	InitializeSynthesisRate(sd_phi);
 }
 
-
+//' @name initializeSynthesisRateByList
+//' @title Initialize synthesis rates with values passed in as a list
+//' @param expression a list of values to use as initial synthesis rate values. Should be same size as number of genes in genome.
 void Parameter::initializeSynthesisRateByList(std::vector<double> expression)
 {
 	InitializeSynthesisRate(expression);
@@ -2212,7 +2542,9 @@ void Parameter::setNumSelectionCategories(unsigned _numSelectionCategories)
 //---------- Synthesis Rate Functions -----------//
 //-----------------------------------------------//
 
-
+//' @name getSynthesisRate
+//' @title Get current synthesis rates for all genes and all mixtures 
+//' @return 2 by 2 vector of numeric values
 std::vector<std::vector<double>> Parameter::getSynthesisRateR()
 {
 	return currentSynthesisRateLevel;
@@ -2249,8 +2581,18 @@ std::vector<double> Parameter::getCurrentSynthesisRateForMixture(unsigned mixtur
  * To implement the R version of this function, the index is also checked.
  * This is the R-wrapper for the C-side function "getCodonSpecificPosteriorMean".
 */
+
+
+ //' @name getCodonSpecificPosteriorMeanForCodon
+ //' @title Calculate codon-specific parameter (CSP) posterior mean
+ //' @param mixtureElement mixture to calculate CSP posterior mean. Should be between 1 and n, where n is number of mixtures.
+ //' @param samples number of samples to use for calculating posterior mean
+ //' @param codon codon to calculate CSP
+ //' @param paramType CSP to calculate posterior mean for. 0: Mutation (ROC,FONSE) or Alpha (PA, PANSE). 1: Selection (ROC,FONSE), Lambda (PANSE), Lambda^prime (PA). 2: NSERate (PANSE) 
+ //' @param withoutReference If model uses reference codon, then ignore this codon (fixed at 0). Should be TRUE for ROC and FONSE. Should be FALSE for PA and PANSE.
+ //' @param log_scale If true, calculate posterior mean on log scale. Should only be used for PA and PANSE.
 double Parameter::getCodonSpecificPosteriorMeanForCodon(unsigned mixtureElement, unsigned samples, std::string codon,
-	unsigned paramType, bool withoutReference)
+	unsigned paramType, bool withoutReference,bool log_scale)
 {
 	double rv = -1.0;
 	codon[0] = (char)std::toupper(codon[0]);
@@ -2259,14 +2601,22 @@ double Parameter::getCodonSpecificPosteriorMeanForCodon(unsigned mixtureElement,
 	bool check = checkIndex(mixtureElement, 1, numMixtures);
 	if (check)
 	{
-		rv = getCodonSpecificPosteriorMean(mixtureElement - 1, samples, codon, paramType, withoutReference, false);
+		rv = getCodonSpecificPosteriorMean(mixtureElement - 1, samples, codon, paramType, withoutReference, false, log_scale);
 	}
 	return rv;
 }
 
-
+ //' @name getCodonSpecificPosteriorVarianceForCodon
+ //' @title Calculate codon-specific parameter (CSP) variance
+ //' @param mixtureElement mixture to calculate CSP variance. Should be between 1 and n, where n is number of mixtures.
+ //' @param samples number of samples to use for calculating variance
+ //' @param codon codon to calculate CSP
+ //' @param paramType CSP to calculate variance for. 0: Mutation (ROC,FONSE) or Alpha (PA, PANSE). 1: Selection (ROC,FONSE), Lambda (PANSE), Lambda^prime (PA). 2: NSERate (PANSE) 
+ //' @param unbiased If TRUE, should calculate variance using unbiased (N-1). Otherwise, used biased (N) correction
+ //' @param withoutReference If model uses reference codon, then ignore this codon (fixed at 0). Should be TRUE for ROC and FONSE. Should be FALSE for PA and PANSE.
+ //' @param log_scale If true, calculate posterior mean on log scale. Should only be used for PA and PANSE.
 double Parameter::getCodonSpecificVarianceForCodon(unsigned mixtureElement, unsigned samples, std::string codon,
-	unsigned paramType, bool unbiased, bool withoutReference)
+	unsigned paramType, bool unbiased, bool withoutReference, bool log_scale)
 {
 	double rv = -1.0;
 	codon[0] = (char)std::toupper(codon[0]);
@@ -2275,14 +2625,23 @@ double Parameter::getCodonSpecificVarianceForCodon(unsigned mixtureElement, unsi
 	bool check = checkIndex(mixtureElement, 1, numMixtures);
 	if (check)
 	{
-		rv = getCodonSpecificVariance(mixtureElement - 1, samples, codon, paramType, unbiased, withoutReference);
+		rv = getCodonSpecificVariance(mixtureElement - 1, samples, codon, paramType, unbiased, withoutReference, log_scale);
 	}
 	return rv;
 }
 
-
+ //' @name getCodonSpecificQuantilesForCodon
+ //' @title Calculate quantiles of CSP traces
+ //' @param mixtureElement mixture to calculate CSP variance. Should be between 1 and n, where n is number of mixtures.
+ //' @param samples number of samples to use for calculating variance
+ //' @param codon codon to calculate CSP
+ //' @param paramType CSP to calculate variance for. 0: Mutation (ROC,FONSE) or Alpha (PA, PANSE). 1: Selection (ROC,FONSE), Lambda (PANSE), Lambda^prime (PA). 2: NSERate (PANSE) 
+ //' @param probs vector of two doubles between 0 and 1 indicating range over which to calculate quantiles. <0.0275, 0.975> would give 95% quantiles.
+ //' @param withoutReference If model uses reference codon, then ignore this codon (fixed at 0). Should be TRUE for ROC and FONSE. Should be FALSE for PA and PANSE.
+ //' @param log_scale If true, calculate posterior mean on log scale. Should only be used for PA and PANSE.
+//'  @return vector representing lower and upper bound of quantile
 std::vector<double> Parameter::getCodonSpecificQuantileForCodon(unsigned mixtureElement, unsigned samples,
-	std::string &codon, unsigned paramType, std::vector<double> probs, bool withoutReference)
+	std::string &codon, unsigned paramType, std::vector<double> probs, bool withoutReference, bool log_scale)
 {
 	std::vector<double> rv;
 	codon[0] = (char)std::toupper(codon[0]);
@@ -2291,9 +2650,9 @@ std::vector<double> Parameter::getCodonSpecificQuantileForCodon(unsigned mixture
 	bool check = checkIndex(mixtureElement, 1, numMixtures);
 	if (check)
 	{
-        rv = getCodonSpecificQuantile(mixtureElement - 1, samples, codon, paramType, probs, withoutReference);
+        rv = getCodonSpecificQuantile(mixtureElement - 1, samples, codon, paramType, probs, withoutReference, log_scale);
     }
-    return rv;     
+    return rv;
 }
 
 std::vector<double> Parameter::getExpressionQuantileForGene(unsigned samples,
@@ -2305,7 +2664,7 @@ std::vector<double> Parameter::getExpressionQuantileForGene(unsigned samples,
 	{
         rv = getExpressionQuantile(samples, geneIndex - 1, probs, log_scale);
     }
-    return rv;     
+    return rv;
 }
 
 /* getSynthesisRatePosteriorMeanForGene
@@ -2316,6 +2675,13 @@ std::vector<double> Parameter::getExpressionQuantileForGene(unsigned samples,
  * To implement the R version of this function, the index is also checked.
  * This is the R-wrapper for the C-side function "getSynthesisRatePosteriorMean".
 */
+
+//' @name getSynthesisRatePosteriorMeanForGene
+//' @title Get posterior mean synthesis rate value for a gene
+//' @param samples number of samples over which to calculate mean
+//' @param geneIndex corresponding index of gene in genome for which posterior mean synthesis rate will be calculated. Should be a number between 1 and length(genome) 
+//' @param log_scale Calculate posterior mean on log scale
+//' @return posterior mean synthesis rate for gene
 double Parameter::getSynthesisRatePosteriorMeanForGene(unsigned samples, unsigned geneIndex, bool log_scale)
 {
 	double rv = -1.0;
@@ -2327,7 +2693,13 @@ double Parameter::getSynthesisRatePosteriorMeanForGene(unsigned samples, unsigne
 	return rv;
 }
 
-
+//' @name getSynthesisRatePosteriorVarianceForGene
+//' @title Get synthesis rate variance for a gene
+//' @param samples number of samples over which to calculate variance
+//' @param geneIndex corresponding index of gene in genome for which synthesis rate variance will be calculated. Should be a number between 1 and length(genome) 
+//' @param unbiased Should calculate variance using unbiased (N-1) or biased (N) correction
+//' @param log_scale Calculate variance on log scale
+//' @return posterior mean synthesis rate for gene
 double Parameter::getSynthesisRateVarianceForGene(unsigned samples, unsigned geneIndex, bool unbiased, bool log_scale)
 {
 	double rv = -1.0;

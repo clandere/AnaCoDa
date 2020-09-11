@@ -79,9 +79,10 @@ plotParameterObject <- function(x, what = "Mutation", samples = 100, mixture.nam
     for (aa in names.aa) {
       if (aa == "M" || aa == "W" || aa == "X") next
       codons <- AAToCodon(aa, T)
-      for (i in 1:length(codons)){
-       means[count,mixture] <- x$getCodonSpecificPosteriorMean(mixture, samples,codons[i], paramType, TRUE)
-        tmp <- x$getCodonSpecificQuantile(mixture,samples, codons[i], paramType, c(0.025, 0.975), TRUE)
+      for (i in 1:length(codons))
+      {
+       means[count,mixture] <- x$getCodonSpecificPosteriorMean(mixture, samples,codons[i], paramType, TRUE, log_scale=FALSE)
+       tmp <- x$getCodonSpecificQuantile(mixture,samples, codons[i], paramType, c(0.025, 0.975), TRUE, log_scale=FALSE)
         
         ## This approach to storing the quantiles may seem unconventional, but I actually found it to be the most straight forward approach
         ## for plotting later.
@@ -256,12 +257,12 @@ codonList <- codons()
 for (i in 1:61)
 {
   codon <- codonList[i]
-  alphaList[i] <- parameter$getCodonSpecificPosteriorMean(cat, samples * 0.5, codon, 0, FALSE)
+  alphaList[i] <- parameter$getCodonSpecificPosteriorMean(cat, samples * 0.5, codon, 0, FALSE,log_scale=F)
   alphaTrace <- trace$getCodonSpecificParameterTraceByMixtureElementForCodon(1, codon, 0, FALSE)
   alpha.ci[i,] <- quantile(alphaTrace[(samples * 0.5):samples], probs = c(0.025,0.975))
   
   
-  lambdaPrimeList[i] <- parameter$getCodonSpecificPosteriorMean(cat, samples * 0.5, codon, 1, FALSE)
+  lambdaPrimeList[i] <- parameter$getCodonSpecificPosteriorMean(cat, samples * 0.5, codon, 1, FALSE, log_scale=F)
   lambdaPrimeTrace <- trace$getCodonSpecificParameterTraceByMixtureElementForCodon(1, codon, 1, FALSE)
   lambdaPrime.ci[i,] <- quantile(lambdaPrimeTrace[(samples * 0.5):samples], probs = c(0.025,0.975))
   waitingTimes[i] <- alphaList[i] * lambdaPrimeList[i]
@@ -303,7 +304,7 @@ axis(1, tck = 0.02, labels = codonList[1:61], at=1:61, las=2, cex.axis=.6)
 #' Plots ACF for codon specific parameter traces
 #' 
 #' @param parameter object of class Parameter
-#' @param csp "Selection" or "Mutation", defaults to "Mutation"
+#' @param csp indicates which parameter to calculate the autocorrelation. Must be Mutation (the default, ROC, FONSE), Selection (ROC, FONSE), Alpha (PA, PANSE), LambdaPrime (PA, PANSE), NSERate (PA, PANSE)"
 #' @param numMixtures indicates the number of CSP mixtures used
 #' @param samples number of samples at the end of the trace used to calculate the acf
 #' @param lag.max Maximum amount of lag to calculate acf. Default is 10*log10(N), where N i the number of observations.
@@ -316,29 +317,42 @@ axis(1, tck = 0.02, labels = codonList[1:61], at=1:61, las=2, cex.axis=.6)
 
 acfCSP <- function(parameter, csp = "Mutation", numMixtures = 1, samples = NULL, lag.max = 40, plot=TRUE)
 {
-  paramType <- 0
-  if (csp == "Selection" )
+  if (csp == "Mutation" || csp == "Alpha")
   {
+    paramType <- 0
+  } else if (csp == "Selection" || csp == "LambdaPrime" || csp == "Lambda"){
     paramType <- 1
+  } else if (csp == "NSERate"){
+    paramType <- 2
+  } else{
+    stop("csp must take one of the following values: Mutation (ROC, FONSE), Selection (ROC, FONSE), Alpha (PA, PANSE), LambdaPrime (PA, PANSE), NSERate (PA, PANSE)")
   }
  
   
   acf.list <- list()
   names.aa <- aminoAcids()
   trace <- parameter$getTraceObject()
-  if(is.null(samples)){ samples <- round(10*log10(length(trace))) }
+  if(is.null(samples))
+  { 
+    samples <- round(10*log10(length(trace))) 
+  }
+
+  ref.codon <- ifelse(csp %in% c("Selection","Mutation"),TRUE,FALSE)
+
   for (aa in names.aa)
   {
-    if (aa == "M" || aa == "W" || aa == "X")
+    if (aa == "X")
       next
-    codons <- AAToCodon(aa, TRUE)
+     if ((aa == "M" || aa == "W") && ref.codon) ## If ROC or FONSE, skip amino acids without synonyms
+      next
+    codons <- AAToCodon(aa, ref.codon) ## If ROC or FONSE, skip reference codon
     codon.list <- list()
     for (i in 1:length(codons))
     {
       mix.list <- list()
       for (j in 1:numMixtures)
       {
-        csp.trace <- trace$getCodonSpecificParameterTraceByMixtureElementForCodon(j, codons[i], paramType, TRUE)
+        csp.trace <- trace$getCodonSpecificParameterTraceByMixtureElementForCodon(j, codons[i], paramType, ref.codon)
         csp.trace <- csp.trace[(length(csp.trace)-samples):length(csp.trace)]
         csp.acf <- acf(x = csp.trace, lag.max = lag.max, plot = FALSE)
         mix.list[[j]] <- csp.acf

@@ -337,10 +337,10 @@ void PAParameter::initFromRestartFile(std::string filename)
  * Arguments: number of samples, number of genes
  * Initializes all traces, base traces and those specific to RFP.
  */
-void PAParameter::initAllTraces(unsigned samples, unsigned num_genes)
+void PAParameter::initAllTraces(unsigned samples, unsigned num_genes, bool estimateSynthesisRate)
 {
 	traces.initializePATrace(samples, num_genes, numMutationCategories, numSelectionCategories, numParam,
-						 numMixtures, categories, (unsigned)groupList.size(),currentSynthesisRateLevel[0],mixtureAssignment);
+						 numMixtures, categories, (unsigned)groupList.size(),obsPhiSets,currentSynthesisRateLevel[0],mixtureAssignment, estimateSynthesisRate);
 }
 
 
@@ -509,15 +509,38 @@ void PAParameter::proposeCodonSpecificParameter()
  * Updates the count of accepted values for codon specific parameters and updates
  * the current value to the accepted proposed value for all codon specific parameters.
 */
+void PAParameter::completeUpdateCodonSpecificParameter()
+{
+	for (std::string codon : CSPToUpdate)
+	{
+    	unsigned i = SequenceSummary::codonToIndex(codon);
+		numAcceptForCodonSpecificParameters[i]++;
+		for(unsigned j = 0; j < getNumMixtureElements(); j++)
+		{
+		    currentCodonSpecificParameter[alp][j][i] = proposedCodonSpecificParameter[alp][j][i];
+		    currentCodonSpecificParameter[lmPri][j][i] = proposedCodonSpecificParameter[lmPri][j][i];
+		}
+	}
+	CSPToUpdate.clear();
+}
+
+/* updateCodonSpecificParameter (NOT EXPOSED)
+ * Arguments: string representation of a grouping (amino acid, codon...)
+ * Updates the count of accepted values for codon specific parameters and updates
+ * the current value to the accepted proposed value for all codon specific parameters.
+*/
 void PAParameter::updateCodonSpecificParameter(std::string grouping)
 {
 	unsigned i = SequenceSummary::codonToIndex(grouping);
 	numAcceptForCodonSpecificParameters[i]++;
-	for(unsigned j = 0; j < getNumMixtureElements(); j++){
+	for(unsigned j = 0; j < getNumMixtureElements(); j++)
+	{
 	    currentCodonSpecificParameter[alp][j][i] = proposedCodonSpecificParameter[alp][j][i];
 	    currentCodonSpecificParameter[lmPri][j][i] = proposedCodonSpecificParameter[lmPri][j][i];
 	}
+	
 }
+
 
 
 // ----------------------------------------------//
@@ -533,11 +556,13 @@ void PAParameter::updateCodonSpecificParameter(std::string grouping)
  */
 void PAParameter::adaptCodonSpecificParameterProposalWidth(unsigned adaptationWidth, unsigned lastIteration, bool adapt)
 {
+	my_print("Acceptance rate for Codon Specific Parameter\n");
+	my_print("\tCodon\tAcc.Rat\n"); //Prop.Width\n";
 	for (unsigned i = 0; i < groupList.size(); i++)
 	{
         unsigned codonIndex = SequenceSummary::codonToIndex(groupList[i]);
 		double acceptanceLevel = (double)numAcceptForCodonSpecificParameters[codonIndex] / (double)adaptationWidth;
-
+		my_print("\t%:\t%\n", groupList[i].c_str(), acceptanceLevel);
 		traces.updateCodonSpecificAcceptanceRateTrace(codonIndex, acceptanceLevel);
 		if (adapt)
 		{

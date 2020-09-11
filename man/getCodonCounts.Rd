@@ -17,7 +17,7 @@ Returns a data.frame storing the codon counts for each amino acid.
 provides the codon counts for a fiven amino acid across all genes
 }
 \details{
-The returned matrix containes a row for each gene and a coloumn 
+The returned matrix containes a row for each gene and a column 
 for each synonymous codon of \code{aa}.
 }
 \examples{

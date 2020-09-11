@@ -28,6 +28,7 @@ class Genome
 												//with a phi value for that set. Values should currently be equal.
         std::vector<std::string> RFPCountColumnNames;
         unsigned prev_genome_size;
+        unsigned totalRFPCount;
 
 
   	public:
@@ -44,7 +45,7 @@ class Genome
 		//File I/O Functions:
 		void readFasta(std::string filename, bool append = false);
 		void writeFasta(std::string filename, bool simulated = false);
-		void readRFPData(std::string filename, bool append = false);
+		void readRFPData(std::string filename, bool append = false, bool positional = false);
 		void writeRFPData(std::string filename, bool simulated = false);
 		void readObservedPhiValues(std::string filename, bool byId = true);
 		void removeUnobservedGenes();
@@ -66,6 +67,7 @@ class Genome
 		std::vector <unsigned> getCodonCountsPerGene(std::string codon);
         std::vector <std::string> getRFPCountColumnNames();
 		void addRFPCountColumnName(std::string categoryName);
+		unsigned getSumRFP();
 
 		//Testing Functions:
 		std::vector <unsigned> getNumGenesWithPhi();

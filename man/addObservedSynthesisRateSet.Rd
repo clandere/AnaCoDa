@@ -4,8 +4,11 @@
 \alias{addObservedSynthesisRateSet}
 \title{Add gene observed synthesis rates}
 \usage{
-addObservedSynthesisRateSet(genome, observed.expression.file,
-  match.expression.by.id = TRUE)
+addObservedSynthesisRateSet(
+  genome,
+  observed.expression.file,
+  match.expression.by.id = TRUE
+)
 }
 \arguments{
 \item{genome}{A genome object initialized with 

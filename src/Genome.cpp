@@ -216,6 +216,7 @@ void Genome::readSimulatedGenomeFromPAModel(std::string filename)
 	Gene tmpGene;
 	bool first = true;
 	std::string seq = "";
+	totalRFPCount = 0;
 
 	while (std::getline(Fin, tmp))
 	{
@@ -275,6 +276,7 @@ void Genome::readSimulatedGenomeFromPAModel(std::string filename)
 	tmpGene.setDescription("No description for PA(NSE) Model");
 	tmpGene.setSequence(seq);
 	addGene(tmpGene, true); //add to genome
+	totalRFPCount += tmpGene.geneData.getSumTotalRFPCount(0);
 
 	Fin.close();
 }
@@ -289,11 +291,12 @@ void Genome::readSimulatedGenomeFromPAModel(std::string filename)
  * RFPCounts are not given as a positive number are set to -1 and are stored, but not used in calculation.
  * There may be more than one RFPCount, and thus the header is important.
 */
-void Genome::readRFPData(std::string filename, bool append)
+void Genome::readRFPData(std::string filename, bool append, bool positional)
 {
+	prev_genome_size = genes.size();
 	try {
 		if (!append) clear();
-
+		totalRFPCount = 0;
 		std::ifstream Fin;
 		Fin.open(filename.c_str());
 
@@ -340,13 +343,13 @@ void Genome::readRFPData(std::string filename, bool append)
 			while (std::getline(Fin, tmp))
 			{
 
-            #ifndef STANDALONE
-            Rcpp::checkUserInterrupt();
-            #endif
+	            #ifndef STANDALONE
+	            Rcpp::checkUserInterrupt();
+	            #endif
 
-        // Remove whitespace from the string
-        tmp.erase(std::remove_if(tmp.begin(), tmp.end(),
-                  std::bind(std::isspace<char>, std::placeholders::_1, std::locale::classic())), tmp.end());
+		        // Remove whitespace from the string
+		        tmp.erase(std::remove_if(tmp.begin(), tmp.end(),
+	                  std::bind(std::isspace<char>, std::placeholders::_1, std::locale::classic())), tmp.end());
 
 				pos = tmp.find(',');
 				std::string ID = tmp.substr(0, pos);
@@ -371,12 +374,21 @@ void Genome::readRFPData(std::string filename, bool append)
 						prevID = ID;
 						first = false;
 					}
+					//This is when we start at a new geneID
 					if (ID != prevID)
 					{
 						tmpGene.setId(prevID);
 						tmpGene.setDescription("No description for PA(NSE) Model");
-						tmpGene.setPASequence(table);
+						if(positional) 
+						{
+							tmpGene.setPANSESequence(table);
+						}
+						else 
+						{
+							tmpGene.setPASequence(table);
+						}
 						addGene(tmpGene, false); //add to genome
+						totalRFPCount += tmpGene.geneData.getSumTotalRFPCount(0);
 						tmpGene.clear();
 						table.clear();
 					}
@@ -426,7 +438,7 @@ void Genome::readRFPData(std::string filename, bool append)
                 tmpGene.setId(prevID);
                 tmpGene.setDescription("No description for PA(NSE) Model");
                 tmpGene.setPASequence(table);
-
+                totalRFPCount += tmpGene.geneData.getSumTotalRFPCount(0);
                 addGene(tmpGene, false); //add to genome
             }
 		} // end else
@@ -487,30 +499,23 @@ void Genome::writeRFPData(std::string filename, bool simulated)
 				}
 			}
 		}
-            // We are printing a simulated gene: There is no position-based RFP calculations.
-            // This is a different format than the standard RFPData one.
 		else
 		{
 			Fout << "GeneID,Position,Codon,RFPCount\n";
-
 			for (unsigned geneIndex = 0u; geneIndex < numGenes; geneIndex++)
 			{
-                unsigned position = 1u;
+                //unsigned position = 1u;
 				Gene *currentGene = &simulatedGenes[geneIndex];
                 SequenceSummary *sequenceSummary = currentGene->getSequenceSummary();
                 std::vector <unsigned> positions = sequenceSummary->getPositionCodonID();
+                std::vector <unsigned> rfpCounts = sequenceSummary->getRFPCount(0);
 				for (unsigned positionIndex = 0u; positionIndex < positions.size(); positionIndex++)
 				{
 					unsigned codonID = positions[positionIndex];
-                    my_printError("%\n",codonID);
     				std::string codon = SequenceSummary::codonArray[codonID];
 
-    				Fout << currentGene->getId() << "," << positionIndex << "," << codon << ",";
+    				Fout << currentGene->getId() << "," << positionIndex + 1 << "," << codon << "," << rfpCounts[positionIndex] << "\n";
 
-                    unsigned rfpValue = 0u;
-                    rfpValue = currentGene->geneData.getSingleRFPCount(position, 0);
-    				// Simulated sum RFP counts will only print one column! So, we default to column = 0.
-    				Fout << rfpValue << "\n";
 				}
 			}
 		}
@@ -661,11 +666,6 @@ void Genome::readObservedPhiValues(std::string filename, bool byId)
 
 				while (std::getline(input, tmp))
 				{
-				
-			#ifndef STANDALONE
-            Rcpp::checkUserInterrupt();
-            #endif
-            
 					if (geneIndex >= genes.size())
 					{
 						my_printError("ERROR: GeneIndex exceeds the number of genes in the genome. Exiting function.");
@@ -775,7 +775,10 @@ void Genome::removeUnobservedGenes()
 	genes = tmp;
 }
 
-
+unsigned Genome::getSumRFP()
+{
+    return totalRFPCount;
+}
 //------------------------------------//
 //---------- Gene Functions ----------//
 //------------------------------------//

@@ -16,7 +16,7 @@
 #' The default Value is NULL.
 #' 
 #' @param initial.expression.values (Optional) A vector with intial phi values.
-#' The length of the vector has to equal the number of genes in the Genome object.
+#' The length of the vector has to equal the number of genes in the Genome object and the order of the genes should match the order of the genes in the Genome.
 #' The default value is NULL.
 #' 
 #' @param model Specifies the model used. Valid options are "ROC", "PA", "PANSE", or "FONSE".
@@ -47,20 +47,33 @@
 #' If given, all other arguments will be ignored.
 #' The default value for init.with.restart.file is NULL.
 #' 
-#' @param mutation.prior.sd Controlling the standard deviation of the normal 
-#' prior on the mutation parameters
+#' @param mutation.prior.mean Controlling the mean of the normal prior on mutation paramters.
+#' If passed in as single number (default is 0), this will be the mean value for all categories, for all codons. User may also
+#' supply a vector with n * 40 values, where n is the number of mutation categories. Future versions will check the number of rows matches
+#' the number of mutation categories definded by user. 
+#' 
+#' @param mutation.prior.sd Controlling the standard deviation of the normal prior on the mutation parameters.
+#' If passed in as single number (default is 0.35), this will be the standard deviation value for all categories, for all codons. User may also
+#' supply a vector with n * 40 values, where n is the number of mutation categories. Future versions will check the number of rows matches
+#' the number of mutation categories definded by user. 
+#' 
+#' @param propose.by.prior Mutation bias parameters will be proposed based on the means and standard deviations set in mutation.prior.mean and mutation.prior.sd
 #' 
 #' @param init.csp.variance specifies the initial proposal width for codon specific parameter (default is 0.0025). 
 #' The proposal width adapts during the runtime to reach a taget acceptance rate of ~0.25
 #' 
 #' @param init.sepsilon specifies the initial value for sepsilon. default is 0.1
 #' 
-#' @param init.w.obs.phi TRUE: initialize phi values with observed phi values 
+#' @param init.w.obs.phi If TRUE, initialize phi values with observed phi values 
 #' (data from RNAseq, mass spectrometry, ribosome footprinting) Default is FALSE. 
 #' If multiple observed phi values exist for a gene, the geometric mean of these values is used as initial phi.
 #' When using this function, one should remove any genes with 
 #' missing phi values, as these genes will not have an initial phi value.
 #' 
+#' @param init.initiation.cost FOR FONSE ONLY. Initializes the initiation cost a_1 at this value.
+#' 
+#' @param init.partition.function FOR PANSE ONLY. initializes the partition function Z.
+#'
 #' @return parameter Returns an initialized Parameter object.
 #' 
 #' @description \code{initializeParameterObject} initializes a new parameter object or reconstructs one from a restart file
@@ -113,9 +126,9 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
                                       model = "ROC", split.serine = TRUE, 
                                       mixture.definition = "allUnique", 
                                       mixture.definition.matrix = NULL,
-                                      init.with.restart.file = NULL, mutation.prior.sd = 0.35, 
+                                      init.with.restart.file = NULL, mutation.prior.mean = 0.0, mutation.prior.sd = 0.35, propose.by.prior=FALSE,
                                       init.csp.variance = 0.0025, init.sepsilon = 0.1, 
-                                      init.w.obs.phi=FALSE){
+                                      init.w.obs.phi=FALSE, init.initiation.cost = 4,init.partition.function=1){
   # check input integrity
   if(is.null(init.with.restart.file)){
     if(length(sphi) != num.mixtures){
@@ -168,9 +181,9 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
   if(model == "ROC"){
     if(is.null(init.with.restart.file)){
       parameter <- initializeROCParameterObject(genome, sphi, num.mixtures, 
-                                                gene.assignment, initial.expression.values, split.serine, 
+                                                gene.assignment, initial.expression.values, split.serine,
                                                 mixture.definition, mixture.definition.matrix, 
-                                                mutation.prior.sd, init.csp.variance, init.sepsilon,init.w.obs.phi)    
+                                                mutation.prior.mean,mutation.prior.sd,propose.by.prior,init.csp.variance, init.sepsilon,init.w.obs.phi)    
     }else{
       parameter <- new(ROCParameter, init.with.restart.file)
     }
@@ -178,7 +191,7 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
     if(is.null(init.with.restart.file)){
       parameter <- initializeFONSEParameterObject(genome, sphi, num.mixtures, 
                                                   gene.assignment, initial.expression.values, split.serine, 
-                                                  mixture.definition, mixture.definition.matrix, init.csp.variance,init.w.obs.phi)
+                                                  mixture.definition, mixture.definition.matrix, init.csp.variance,init.sepsilon,init.w.obs.phi,init.initiation.cost)
     }else{
       parameter <- new(FONSEParameter, init.with.restart.file)
     }
@@ -186,7 +199,7 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
     if(is.null(init.with.restart.file)){
       parameter <- initializePAParameterObject(genome, sphi, num.mixtures, 
                                                gene.assignment, initial.expression.values, split.serine, 
-                                               mixture.definition, mixture.definition.matrix, init.csp.variance,init.w.obs.phi) 
+                                               mixture.definition, mixture.definition.matrix, init.csp.variance,init.sepsilon,init.w.obs.phi)
     }else{
       parameter <- new(PAParameter, init.with.restart.file)
     }
@@ -194,7 +207,7 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
     if(is.null(init.with.restart.file)){
       parameter <- initializePANSEParameterObject(genome, sphi, num.mixtures, 
                                                   gene.assignment, initial.expression.values, split.serine, 
-                                                  mixture.definition, mixture.definition.matrix, init.csp.variance,init.w.obs.phi) 
+                                                  mixture.definition, mixture.definition.matrix, init.csp.variance,init.sepsilon,init.w.obs.phi,init.partition.function) 
     }else{
       parameter <- new(PANSEParameter, init.with.restart.file)
     }
@@ -210,7 +223,7 @@ initializeParameterObject <- function(genome = NULL, sphi = NULL, num.mixtures =
 initializeROCParameterObject <- function(genome, sphi, numMixtures, geneAssignment,
                                          expressionValues = NULL, split.serine = TRUE,
                                          mixture.definition = "allUnique", 
-                                         mixture.definition.matrix = NULL, mutation_prior_sd = 0.35, init.csp.variance = 0.0025, init.sepsilon = 0.1,init.w.obs.phi=FALSE){
+                                         mixture.definition.matrix = NULL, mutation_prior_mean = 0.0, mutation_prior_sd = 0.35, propose.by.prior=FALSE,init.csp.variance = 0.0025, init.sepsilon = 0.1,init.w.obs.phi=FALSE){
   
   if(is.null(mixture.definition.matrix)){ 
     # keyword constructor
@@ -228,7 +241,7 @@ initializeROCParameterObject <- function(genome, sphi, numMixtures, geneAssignme
   # initialize expression values
   if(is.null(expressionValues) && init.w.obs.phi == F)
   {
-    parameter$initializeSynthesisRateByGenome(genome, mean(sphi))
+    parameter$initializeSynthesisRateByGenome(genome,mean(sphi))
     
   } 
   else if(init.w.obs.phi == T && is.null(expressionValues))
@@ -255,9 +268,22 @@ initializeROCParameterObject <- function(genome, sphi, numMixtures, geneAssignme
   
   n.obs.phi.sets <- ncol(getObservedSynthesisRateSet(genome)) - 1
   parameter$setNumObservedSynthesisRateSets(n.obs.phi.sets)
+  if (length(mutation_prior_mean) == 1)
+  {
+    mutation_prior_mean <- rep(mutation_prior_mean,length=parameter$numMutationCategories * 40)
+  } else{
+    mutation_prior_mean <- as.vector(t(mutation_prior_mean))
+  }
   
-  parameter$mutation_prior_sd <- mutation_prior_sd
-  
+  if (length(mutation_prior_sd) == 1)
+  {
+    mutation_prior_sd <- rep(mutation_prior_sd,length=parameter$numMutationCategories * 40)
+  } else{
+    mutation_prior_sd <- as.vector(t(mutation_prior_sd))
+  }
+  parameter$setMutationPriorMean(mutation_prior_mean)
+  parameter$setMutationPriorStandardDeviation(mutation_prior_sd)
+  parameter$setProposeByPrior(propose.by.prior)
   if (n.obs.phi.sets != 0){
     parameter$setInitialValuesForSepsilon(as.vector(init.sepsilon))
   }
@@ -272,7 +298,7 @@ initializeROCParameterObject <- function(genome, sphi, numMixtures, geneAssignme
 initializePAParameterObject <- function(genome, sphi, numMixtures, geneAssignment, 
                                         expressionValues = NULL, split.serine = TRUE, 
                                         mixture.definition = "allUnique", 
-                                        mixture.definition.matrix = NULL, init.csp.variance,init.w.obs.phi=FALSE){
+                                        mixture.definition.matrix = NULL, init.csp.variance = 0.0025 ,init.sepsilon = 0.1,init.w.obs.phi=FALSE){
   
   if(is.null(mixture.definition.matrix))
   { # keyword constructor
@@ -288,10 +314,9 @@ initializePAParameterObject <- function(genome, sphi, numMixtures, geneAssignmen
   
   
   # initialize expression values
-  # initialize expression values
   if(is.null(expressionValues) && init.w.obs.phi == F)
   {
-    parameter$initializeSynthesisRateByGenome(genome, mean(sphi))
+    parameter$initializeSynthesisRateByRandom(mean(sphi))
     
   } 
   else if(init.w.obs.phi == T && is.null(expressionValues))
@@ -317,7 +342,11 @@ initializePAParameterObject <- function(genome, sphi, numMixtures, geneAssignmen
   }
   
   ## TODO (Cedric): use init.csp.variance to set initial proposal width for CSP parameters
-  
+  n.obs.phi.sets <- ncol(getObservedSynthesisRateSet(genome)) - 1
+  parameter$setNumObservedSynthesisRateSets(n.obs.phi.sets)
+  if (n.obs.phi.sets != 0){
+    parameter$setInitialValuesForSepsilon(as.vector(init.sepsilon))
+  }
   return (parameter)
 }
 
@@ -325,7 +354,7 @@ initializePAParameterObject <- function(genome, sphi, numMixtures, geneAssignmen
 initializePANSEParameterObject <- function(genome, sphi, numMixtures, geneAssignment, 
                                            expressionValues = NULL, split.serine = TRUE, 
                                            mixture.definition = "allUnique", 
-                                           mixture.definition.matrix = NULL, init.csp.variance,init.w.obs.phi=FALSE){
+                                           mixture.definition.matrix = NULL, init.csp.variance = 0.0025 ,init.sepsilon = 0.1,init.w.obs.phi=FALSE,init.partition.function=1){
   
   if(is.null(mixture.definition.matrix))
   { # keyword constructor
@@ -344,8 +373,8 @@ initializePANSEParameterObject <- function(genome, sphi, numMixtures, geneAssign
   # initialize expression values
   if(is.null(expressionValues) && init.w.obs.phi == F)
   {
-    parameter$initializeSynthesisRateByGenome(genome, mean(sphi))
-    
+    parameter$initializeSynthesisRateByRandom(mean(sphi))
+
   } 
   else if(init.w.obs.phi == T && is.null(expressionValues))
   {
@@ -368,7 +397,18 @@ initializePANSEParameterObject <- function(genome, sphi, numMixtures, geneAssign
   {
     stop("expressionValues is not NULL and init.w.obs.phi == TRUE. Please choose only one of these options.")
   }
-  
+
+  parameter$setTotalRFPCount(genome);
+  for (j in 1:numMixtures)
+  { 
+    parameter$setPartitionFunction(init.partition.function,j-1)
+  }
+  n.obs.phi.sets <- ncol(getObservedSynthesisRateSet(genome)) - 1
+  parameter$setNumObservedSynthesisRateSets(n.obs.phi.sets)
+  if (n.obs.phi.sets != 0){
+    parameter$setInitialValuesForSepsilon(as.vector(init.sepsilon))
+  }
+
   return (parameter)
 }
 
@@ -376,19 +416,19 @@ initializePANSEParameterObject <- function(genome, sphi, numMixtures, geneAssign
 initializeFONSEParameterObject <- function(genome, sphi, numMixtures, 
                                            geneAssignment, expressionValues = NULL, split.serine = TRUE,
                                            mixture.definition = "allUnique", 
-                                           mixture.definition.matrix = NULL, init.csp.variance,init.w.obs.phi=FALSE){
+                                           mixture.definition.matrix = NULL, init.csp.variance = 0.0025 ,init.sepsilon = 0.1,init.w.obs.phi=FALSE,init.initiation.cost = 4){
   
   # create Parameter object
   if(is.null(mixture.definition.matrix))
   { # keyword constructor
     parameter <- new(FONSEParameter, as.vector(sphi), numMixtures, geneAssignment, 
-                     split.serine, mixture.definition)
+                     split.serine, mixture.definition, init.initiation.cost)
   }else{
     #matrix constructor
     mixture.definition <- c(mixture.definition.matrix[, 1], 
                             mixture.definition.matrix[, 2])
     parameter <- new(FONSEParameter, as.vector(sphi), geneAssignment, 
-                     mixture.definition, split.serine)
+                     mixture.definition, split.serine,init.initiation.cost)
   }
   
   
@@ -396,8 +436,8 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
   # initialize expression values
   if(is.null(expressionValues) && init.w.obs.phi == F)
   {
-    parameter$initializeSynthesisRateByGenome(genome, mean(sphi))
-    
+    parameter$initializeSynthesisRateByGenome(genome,mean(sphi))
+
   } 
   else if(init.w.obs.phi == T && is.null(expressionValues))
   {
@@ -420,129 +460,18 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
   {
     stop("expressionValues is not NULL and init.w.obs.phi == TRUE. Please choose only one of these options.")
   }
+
+  n.obs.phi.sets <- ncol(getObservedSynthesisRateSet(genome)) - 1
+  parameter$setNumObservedSynthesisRateSets(n.obs.phi.sets)
+  if (n.obs.phi.sets != 0){
+    parameter$setInitialValuesForSepsilon(as.vector(init.sepsilon))
+  }
   parameter <- initializeCovarianceMatrices(parameter, genome, numMixtures, geneAssignment, init.csp.variance)
   
   return(parameter)
 }
 
  
-# getCSPEstimates <- function(parameter, filename=NULL, CSP="Mutation", mixture = 1, samples = 10, optref = FALSE){
-#   Amino_Acid <- c()
-#   Value <- c()
-#   Codon <- c()
-#   quantile_list <- vector("list")
-#   
-#   if (class(parameter) == "Rcpp_ROCParameter" || class(parameter) == "Rcpp_FONSEParameter"){
-#     names.aa <- aminoAcids()
-#     
-#     for(aa in names.aa){
-#       if(aa == "M" || aa == "W" || aa == "X") next
-#       codons <- AAToCodon(aa, T)
-#       
-#       for(i in 1:length(codons)){
-#         Amino_Acid <- c(Amino_Acid, aa)
-#         Codon <- c(Codon, codons[i])
-#         
-#         if(CSP == "Mutation"){
-#           Value <- c(Value, parameter$getCodonSpecificPosteriorMean(mixture, samples, codons[i], 0, TRUE))
-#           quantile_list <- c(quantile_list, parameter$getCodonSpecificQuantile(mixture, samples, codons[i], 0, c(0.025, 0.975), TRUE))
-#         }
-#         else if(CSP == "Selection"){
-#           Value <- c(Value, parameter$getCodonSpecificPosteriorMean(mixture, samples, codons[i], 1, TRUE))
-#           quantile_list <- c(quantile_list, parameter$getCodonSpecificQuantile(mixture, samples, codons[i], 1, c(0.025, 0.975), TRUE))
-#         }
-#         else {
-#           stop("Unknown parameter type given with argument: CSP")
-#         }
-#       }
-#     }
-#   }
-#   else if (class(parameter) == "Rcpp_PAParameter"){
-#     groupList <- parameter$getGroupList()
-#     
-#     for(i in 1:length(groupList)){
-#       aa <- codonToAA(groupList[i])
-#       Codon <- c(Codon, groupList[i])
-#       Amino_Acid <- c(Amino_Acid, aa)
-#       
-#       if(CSP == "Alpha"){
-#         Value <- c(Value, parameter$getCodonSpecificPosteriorMean(mixture, samples, groupList[i], 0, FALSE))
-#         quantile_list <- c(quantile_list, parameter$getCodonSpecificQuantile(mixture, samples, groupList[i], 0, c(0.025, 0.975), FALSE))
-#       }
-#       else if(CSP == "Lambda Prime"){
-#         Value <- c(Value, parameter$getCodonSpecificPosteriorMean(mixture, samples, groupList[i], 1, FALSE))
-#         quantile_list <- c(quantile_list, parameter$getCodonSpecificQuantile(mixture, samples, groupList[i], 1, c(0.025, 0.975), FALSE))
-#       }
-#       else {
-#         stop("Unknown parameter type given with argument: CSP")
-#       }
-#     }
-#   }
-#   else if (class(parameter) == "Rcpp_PANSEParameter"){
-#     groupList <- parameter$getGroupList()
-#     
-#     for(i in 1:length(groupList)){
-#       aa <- codonToAA(groupList[i])
-#       Codon <- c(Codon, groupList[i])
-#       Amino_Acid <- c(Amino_Acid, aa)
-#       
-#       if(CSP == "Alpha"){
-#         Value <- c(Value, parameter$getCodonSpecificPosteriorMean(mixture, samples, groupList[i], 0, FALSE))
-#         quantile_list <- c(quantile_list, parameter$getCodonSpecificQuantile(mixture, samples, groupList[i], 0, c(0.025, 0.975), FALSE))
-#       }
-#       else if(CSP == "Lambda Prime"){
-#         Value <- c(Value, parameter$getCodonSpecificPosteriorMean(mixture, samples, groupList[i], 1, FALSE))
-#         quantile_list <- c(quantile_list, parameter$getCodonSpecificQuantile(mixture, samples, groupList[i], 1, c(0.025, 0.975), FALSE))
-#       }
-#       else {
-#         stop("Unknown parameter type given with argument: CSP")
-#       }
-#     }
-#   }
-#   else{
-#     stop("Unknown object provided with argument: parameter")
-#   }
-#   
-#   quantile_list <- matrix(unlist(quantile_list), nrow = 2)
-#   data <- data.frame(Amino_Acid, Codon, Value, Lower=quantile_list[1,], Upper=quantile_list[2,])
-#   colnames(data) <- c("AA", "Codon", "Posterior", "0.025%", "0.975%")
-#   data <- add.ref.codon(data, optref)
-#   
-#   if(is.null(filename))
-#   {
-#     return(data)
-#   }else {
-#     write.csv(data, file = filename, row.names = FALSE, quote=FALSE)
-#   }
-# }
-# 
-# add.ref.codon <- function(csp, opt.ref = FALSE)
-# {
-#   fill.in <- data.frame(Codon=as.character(AnaCoDa::codons()))
-#   csp <- merge(x = csp, y = fill.in, by = "Codon", all = T)
-#   for(i in 1:64)
-#     csp$AA[i] <- AnaCoDa::codonToAA(as.character(csp$Codon[i]))
-#   csp[is.na(csp)] <- 0
-#   csp <- csp[order(csp$AA), ]
-#   
-#   if(opt.ref)
-#   {
-#     aas <- aminoAcids()
-#     n.aa <- length(aas)
-#     for(j in 1:n.aa)
-#     {
-#       aa <- aas[j]
-#       if(aa == "W" || aa == "M" || aa == "X") next
-#       aa.pos <- which(csp$AA == aa)
-#       csp[aa.pos, 3] <- csp[aa.pos, 3] - min(csp[aa.pos, 3])
-#       csp[aa.pos, 4] <- csp[aa.pos, 4] - min(csp[aa.pos, 4])
-#       csp[aa.pos, 5] <- csp[aa.pos, 5] - min(csp[aa.pos, 5])
-#     }
-#   }
-#   return(csp)
-# }
-
-
 
 #' Calculates the marginal log-likelihood for a set of parameters
 #'
@@ -555,13 +484,14 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
 #' @param n.samples How many samples should be used for the calculation 
 #'  
 #' @param divisor A value > 1 in order to scale down the tails of the importance distribution
-#'  
+#'
+#' @param warnings Print warnings such as when the variance of a parameter is 0, which might occur when parameter is fixed  
 #' @return This function returns the model object created. 
 #'  
 #' @description initializes the model object. 
 #' 
 #' @details calculateMarginalLogLikelihood Calculate marginal log-likelihood for
-#' calculation of the Bayes factor using a generalized harmonic mean estimator of the 
+#' calculation of the Bayes factor using a generalized harmonix mean estimator of the 
 #' marginal likelihood. See Gronau et al. (2017) for details
 #'
 #' @examples 
@@ -569,7 +499,7 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
 #' # Calculate the log-marginal likelihood
 #' parameter <- loadParameterObject("parameter.Rda")
 #' mcmc <- loadMCMCObject("mcmc.Rda")
-#' calculateMarginalLogLikelihood(parameter, mcmc, mixture = 1, 
+#' calculate_marginal_likelihood(parameter, mcmc, mixture = 1, 
 #' samples = 500, scaling = 1.5)
 #'
 #' # Calculate the Bayes factor for two models
@@ -577,100 +507,108 @@ initializeFONSEParameterObject <- function(genome, sphi, numMixtures,
 #' parameter2 <- loadParameterObject("parameter2.Rda")
 #' mcmc1 <- loadMCMCObject("mcmc1.Rda")
 #' mcmc2 <- loadMCMCObject("mcmc2.Rda")
-#' mll1 <- calculateMarginalLogLikelihood(parameter1, mcmc1, mixture = 1, 
+#' mll1 <- calculate_marginal_likelihood(parameter1, mcmc1, mixture = 1, 
 #' samples = 500, scaling = 1.5)
-#' mll2 <- calculateMarginalLogLikelihood(parameter2, mcmc2, mixture = 1, 
+#' mll2 <- calculate_marginal_likelihood(parameter2, mcmc2, mixture = 1, 
 #' samples = 500, scaling = 1.5)
 #' cat("Bayes factor: ", mll1 - mll2, "\n")
 #' }
 #'  
-calculateMarginalLogLikelihood <- function(parameter, mcmc, mixture, n.samples, divisor)
+calculateMarginalLogLikelihood <- function(parameter, mcmc, mixture, n.samples, divisor,warnings=TRUE)
 {  
   if(divisor < 1) stop("Generalized Harmonic Mean Estimation of Marginal Likelihood requires importance sampling distribution variance divisor be greater than 1")
-
+  
   ## Collect information from AnaCoDa objects
   trace <- parameter$getTraceObject()
   ## This should be the posterior instead of the log_posterior but this causes an overflow, find fix!!!
   log_posterior <- mcmc$getLogPosteriorTrace()
   log_posterior <- log_posterior[(length(log_posterior) - n.samples+1):(length(log_posterior))]
   
+  
   ### HANDLE CODON SPECIFIC PARAMETERS
   log_imp_dens_sample <- rep(0, n.samples)
-  for(ptype in 0:1) # for all parameter types (mutation/selection parameters)
+  for (k in 1:mixture)
   {
-    for(aa in AnaCoDa::aminoAcids()) # for all amino acids
+    for(ptype in 0:1) # for all parameter types (mutation/selection parameters)
     {
-      if(aa == "M" || aa == "W" || aa == "X") next # ignore amino acids with only one codon or stop codons 
-      codons <- AnaCoDa::AAToCodon(aa, focal = T)
-      ## get covariance matrix and mean of importance distribution
-      sample_mat <- matrix(NA, ncol = length(codons), nrow = n.samples)
-      mean_vals <- rep(NA, length(codons))
-      for(i in 1:length(codons)) # for all codons
+      for(aa in AnaCoDa::aminoAcids()) # for all amino acids
       {
-        vec <- trace$getCodonSpecificParameterTraceByMixtureElementForCodon(mixture, codons[i], ptype, TRUE)
-        vec <- vec[(length(vec) - n.samples+1):(length(vec))]
-        sample_mat[,i] <- vec
-        mean_vals[i] <- mean(vec)
-      }
-      ## scale/shrinked covariance matrix
-      cov_mat <- cov(sample_mat) / divisor
-      
-      for(i in 1:n.samples)
-      {
-        ## calculate importance density for collected samples
-        ## mikeg: We should double check with Russ that it is okay to use the full covariance matrix of the sample (even though we have no prior on the cov structure) when constructing the importance density function.
-        ## It seems logical to do so
-        log_imp_dens_aa <- dmvnorm(x = sample_mat[i,], mean = mean_vals, sigma = cov_mat, log = TRUE)
-        log_imp_dens_sample[i] = log_imp_dens_sample[i] + log_imp_dens_aa
+        if(aa == "M" || aa == "W" || aa == "X") next # ignore amino acids with only one codon or stop codons 
+        codons <- AnaCoDa::AAToCodon(aa, focal = T)
+        ## get covariance matrix and mean of importance distribution
+        sample_mat <- matrix(NA, ncol = length(codons), nrow = n.samples)
+        mean_vals <- rep(NA, length(codons))
+        for(i in 1:length(codons)) # for all codons
+        {
+          vec <- trace$getCodonSpecificParameterTraceByMixtureElementForCodon(k, codons[i], ptype, TRUE)
+          vec <- vec[(length(vec) - n.samples+1):(length(vec))]
+          sample_mat[,i] <- vec
+          mean_vals[i] <- mean(vec)
+        }
+        ## scale/shrinked covariance matrix
+        cov_mat <- cov(sample_mat) / divisor
+        if(all(cov_mat == 0))
+        {
+          if(warnings) print(paste("Covariance matrix for codons in amino acid",aa,"has 0 for all values. Skipping."))
+          next
+        }
+        for(i in 1:n.samples)
+        {
+          ## calculate importance density for collected samples
+          ## mikeg: We should double check with Russ that it is okay to use the full covariance matrix of the sample (even though we have no prior on the cov structure) when constructing the importance density function.
+          ## It seems logical to do so
+          log_imp_dens_aa <- dmvnorm(x = sample_mat[i,], mean = mean_vals, sigma = cov_mat, log = TRUE)
+          log_imp_dens_sample[i] = log_imp_dens_sample[i] + log_imp_dens_aa
+        }
       }
     }
   }
-  
   ## HANDLE GENE SPECIFIC PARAMETERS
   
   # phi values are stored on natural scale.
+  
   synt_trace <- trace$getSynthesisRateTrace()[[mixture]]
-  n_genes = length(synt_trace);
+  n_genes <- length(synt_trace);
   
   sd_vals <- rep(NA, n_genes)
   mean_vals <- rep(NA, n_genes)
   for(i in 1:n_genes) ## i is indexing across genes
   {
     vec <- synt_trace[[i]]
-    
     vec <- vec[(length(vec) - n.samples+1):(length(vec))]
-    
     sd_vals[i] <- sd(vec)
+    if (all(sd_vals[i] == 0))
+    {
+      if(warnings) print(paste("Variance of gene",i,"is 0. Skipping."))
+      next
+    }
     mean_vals[i] <- mean(vec)
-    log_mean_vals = log(mean_vals) - 0.5 * log(1+(sd_vals^2/mean_vals^2))
-    log_sd_vals = sqrt(log(1+(sd_vals^2/mean_vals^2)))
+    log_mean_vals <- log(mean_vals) - 0.5 * log(1+(sd_vals^2/mean_vals^2))
+    log_sd_vals <- sqrt(log(1+(sd_vals^2/mean_vals^2)))
     
     ## Calculate vector of importance density for entire \phi trace of gene.
     log_imp_dens_phi <- dlnorm(x = vec, meanlog = log_mean_vals[i], sdlog = log_sd_vals[i]/divisor, log = TRUE)
     
     
     ## update importance density function vector of sample with current gene;
-    log_imp_dens_sample = log_imp_dens_sample + log_imp_dens_phi
+    log_imp_dens_sample <- log_imp_dens_sample + log_imp_dens_phi
     
   } ## end synth_trace loop
   
   ## Scale importance density for each sample by its posterior probability (on log scale)
-  log_imp_dens_over_posterior = log_imp_dens_sample - log_posterior
-  
+  log_imp_dens_over_posterior <- log_imp_dens_sample - log_posterior
   ## now scale by max term to facilitate summation
-  max_log_term = max(log_imp_dens_over_posterior)
+  max_log_term <- max(log_imp_dens_over_posterior)
   ## Y = X - max_X
   offset_log_imp_dens_over_posterior <- log_imp_dens_over_posterior - max_log_term
   ## Z = sum(exp(vec(Y)))
-  offset_sum_imp_dens_over_posterior <- sum(exp(offset_log_imp_dens_over_posterior))/n.samples
+  offset_sum_imp_dens_over_posterior <- sum(exp(offset_log_imp_dens_over_posterior))
   log_sum_imp_dens_over_posterior <- log(offset_sum_imp_dens_over_posterior) + max_log_term
   ## ln(ML) = ln(n) -(Z + max_X)
   log_marg_lik <- log(n.samples) - log_sum_imp_dens_over_posterior
   ##marg_lik = 1.0/(log_inv_marg_lik/n.samples) # equation 9
   return(log_marg_lik)
 }
-
-
 
 #' Find and return list of optimal codons
 #' 
@@ -725,6 +663,18 @@ findOptimalCodon <- function(csp)
 }
 
 
+getNSEProbabilityTrace <- function(parameter,mixture,codon,samples)
+{ 
+  trace <- parameter$getTraceObject()
+  alpha <- trace$getCodonSpecificParameterTraceByMixtureElementForCodon(mixture, codon, 0, F)
+  lambda <- trace$getCodonSpecificParameterTraceByMixtureElementForCodon(mixture, codon, 1, F)
+  nserate <- trace$getCodonSpecificParameterTraceByMixtureElementForCodon(mixture, codon, 2, F)
+  prob.nse.trace <- nserate * (alpha/lambda)
+  return(prob.nse.trace[(length(prob.nse.trace)-samples):length(prob.nse.trace)])
+}
+
+
+
 #' Return Codon Specific Paramters (or write to csv) estimates as data.frame
 #' 
 #' @param parameter parameter an object created by \code{initializeParameterObject}.
@@ -738,7 +688,9 @@ findOptimalCodon <- function(csp)
 #' @param relative.to.optimal.codon Boolean determining if parameters should be relative to the preferred codon or the alphabetically last codon (Default=TRUE). Only applies to ROC and FONSE models 
 #'
 #' @param report.original.ref Include the original reference codon (Default = TRUE). Note this is only included for the purposes of simulations, which expect the input parameter file to be in a specific format. Later version of AnaCoDa will remove this. 
-
+#'
+#' @param log.scale Calculate posterior means, standard deviation, and posterior probability intervals on the natural log scale. Should be used for PA and PANSE models only.
+#'
 #' @return returns a list data.frame with the posterior estimates of the models 
 #' codon specific parameters or writes it directly to a csv file if \code{filename} is specified
 #' 
@@ -776,8 +728,13 @@ findOptimalCodon <- function(csp)
 #' 
 #' }
 
-getCSPEstimates <- function(parameter, filename=NULL, mixture = 1, samples = 10, relative.to.optimal.codon=T, report.original.ref = T)
+getCSPEstimates <- function(parameter, filename=NULL, mixture = 1, samples = 10, relative.to.optimal.codon=T, report.original.ref = T,log.scale=F)
 {
+  if((class(parameter)=="Rcpp_ROCParameter" || class(parameter)=="Rcpp_FONSEParameter") && log.scale)
+  {
+    stop("Log transformation will be performed on negative values. Stopping execution of getCSPEstimates.")
+  }
+
   model.conditions <- checkModel(parameter)
   model.uses.ref.codon <- model.conditions$model.uses.ref.codon
   names.aa <- model.conditions$aa
@@ -787,8 +744,11 @@ getCSPEstimates <- function(parameter, filename=NULL, mixture = 1, samples = 10,
   ## Creates empty vector of 0 for initial dataframes
   init <- rep(0.0,length(codons))
   
-  param.1<- data.frame(Codon=codons,AA=names.aa,Posterior=init,Lower.quant=init, Upper.quant=init,stringsAsFactors = F,row.names = codons)
-  param.2 <- data.frame(Codon=codons,AA=names.aa,Posterior=init,Lower.quant=init, Upper.quant=init,stringsAsFactors = F,row.names=codons)
+  param.1<- data.frame(Codon=codons,AA=names.aa,Mean=init,Std.Dev=init,Lower.quant=init,Upper.quant=init,stringsAsFactors = F,row.names = codons)
+  param.2 <- data.frame(Codon=codons,AA=names.aa,Mean=init,Std.Dev=init,Lower.quant=init,Upper.quant=init,stringsAsFactors = F,row.names=codons)
+  param.3 <- data.frame(Codon=codons,AA=names.aa,Mean=init,Std.Dev=init,Lower.quant=init,Upper.quant=init,stringsAsFactors = F,row.names=codons)
+  param.4 <- data.frame(Codon=codons,AA=names.aa,Mean=init,Std.Dev=init,Lower.quant=init,Upper.quant=init,stringsAsFactors = F,row.names=codons)
+  
   if (model.uses.ref.codon)
   {
     codons <- codons[which(codons %in% unlist(lapply(X = names.aa,FUN = AAToCodon,T)))]
@@ -796,13 +756,33 @@ getCSPEstimates <- function(parameter, filename=NULL, mixture = 1, samples = 10,
   ## Get parameter estimate for each codon
   for (codon in codons)
   {
-    param.1[codon,"Posterior"] <- parameter$getCodonSpecificPosteriorMean(mixtureElement=mixture,samples=samples,codon=codon,paramType=0,withoutReference=model.uses.ref.codon)
-    param.2[codon,"Posterior"] <- parameter$getCodonSpecificPosteriorMean(mixtureElement=mixture,samples=samples,codon=codon,paramType=1,withoutReference=model.uses.ref.codon)
-    param.1[codon,c("Lower.quant","Upper.quant")] <- parameter$getCodonSpecificQuantile(mixtureElement=mixture, samples=samples,codon=codon,paramType=0, probs=c(0.025, 0.975),withoutReference=model.uses.ref.codon)
-    param.2[codon,c("Lower.quant","Upper.quant")]  <- parameter$getCodonSpecificQuantile(mixtureElement=mixture, samples=samples,codon=codon,paramType=1, probs=c(0.025, 0.975),withoutReference=model.uses.ref.codon)
+    param.1[codon,"Mean"] <- parameter$getCodonSpecificPosteriorMean(mixtureElement=mixture,samples=samples,codon=codon,paramType=0,withoutReference=model.uses.ref.codon,log_scale=log.scale)
+    param.2[codon,"Mean"] <- parameter$getCodonSpecificPosteriorMean(mixtureElement=mixture,samples=samples,codon=codon,paramType=1,withoutReference=model.uses.ref.codon,log_scale=log.scale)
+    param.1[codon,"Std.Dev"] <- sqrt(parameter$getCodonSpecificVariance(mixtureElement=mixture,samples=samples,codon=codon,paramType=0,unbiased=T,withoutReference=model.uses.ref.codon,log_scale=log.scale))
+    param.2[codon,"Std.Dev"] <- sqrt(parameter$getCodonSpecificVariance(mixtureElement=mixture,samples=samples,codon=codon,paramType=1,unbiased=T,withoutReference=model.uses.ref.codon,log_scale=log.scale))
+    param.1[codon,c("Lower.quant","Upper.quant")] <- parameter$getCodonSpecificQuantile(mixtureElement=mixture, samples=samples,codon=codon,paramType=0, probs=c(0.025, 0.975),withoutReference=model.uses.ref.codon,log_scale=log.scale)
+    param.2[codon,c("Lower.quant","Upper.quant")]  <- parameter$getCodonSpecificQuantile(mixtureElement=mixture, samples=samples,codon=codon,paramType=1, probs=c(0.025, 0.975),withoutReference=model.uses.ref.codon,log_scale=log.scale)
+    if (length(parameter.names) == 4)
+    {
+      param.3[codon,"Mean"] <- parameter$getCodonSpecificPosteriorMean(mixtureElement=mixture,samples=samples,codon=codon,paramType=2,withoutReference=model.uses.ref.codon,log_scale=log.scale)
+      param.3[codon,"Std.Dev"] <- sqrt(parameter$getCodonSpecificVariance(mixtureElement=mixture,samples=samples,codon=codon,paramType=2,unbiased=T,withoutReference=model.uses.ref.codon,log_scale=log.scale))
+      param.3[codon,c("Lower.quant","Upper.quant")] <- parameter$getCodonSpecificQuantile(mixtureElement=mixture, samples=samples,codon=codon,paramType=2, probs=c(0.025, 0.975),withoutReference=model.uses.ref.codon,log_scale=log.scale)
+      prob.nse.trace <- getNSEProbabilityTrace(parameter,mixture,codon,samples)
+      if (log.scale)
+      {
+        prob.nse.trace <- log10(prob.nse.trace)
+      }
+      param.4[codon,"Mean"] <- mean(prob.nse.trace)
+      param.4[codon,"Std.Dev"] <- sd(prob.nse.trace)
+      param.4[codon,c("Lower.quant","Upper.quant")] <- quantile(prob.nse.trace,probs=c(0.025,0.975),type=8)
+     
+
+    }
   }
-  colnames(param.1) <- c("Codon", "AA", "Posterior", "0.025%", "0.975%")
-  colnames(param.2) <- c("Codon", "AA", "Posterior", "0.025%", "0.975%")
+  colnames(param.1) <- c("Codon", "AA", "Mean","Std.Dev","2.5%", "97.5%")
+  colnames(param.2) <- c("Codon", "AA", "Mean","Std.Dev","2.5%", "97.5%")
+  colnames(param.3) <- c("Codon", "AA", "Mean","Std.Dev","2.5%", "97.5%")
+  colnames(param.4) <- c("Codon", "AA", "Mean","Std.Dev","2.5%", "97.5%")
   
   ## Only called if model actually uses reference codon
   if(relative.to.optimal.codon && model.uses.ref.codon)
@@ -813,20 +793,38 @@ getCSPEstimates <- function(parameter, filename=NULL, mixture = 1, samples = 10,
     ## TO DO: update C++ function which might expect certain format for the input CSP file parameters
     if (model.uses.ref.codon && !report.original.ref)
     {
-      param.1 <- param.1[-which(param.1[,"Posterior"]==0),]
-      param.2 <- param.2[-which(param.2[,"Posterior"]==0),]
+      param.1 <- param.1[-which(param.1[,"Mean"]==0),]
+      param.2 <- param.2[-which(param.2[,"Mean"]==0),]
     }
-    csp.param <- vector(mode="list",length=2)
+    csp.param <- vector(mode="list",length=length(parameter.names))
     names(csp.param) <- parameter.names
-    csp.param[[parameter.names[1]]] <- param.1[,c("AA", "Codon", "Posterior", "0.025%", "0.975%")]
-    csp.param[[parameter.names[2]]] <- param.2[,c("AA", "Codon", "Posterior", "0.025%", "0.975%")]
+     
+
+    csp.param[[parameter.names[1]]] <- param.1[,c("AA", "Codon", "Mean", "Std.Dev","2.5%", "97.5%")]
+    csp.param[[parameter.names[2]]] <- param.2[,c("AA", "Codon", "Mean", "Std.Dev","2.5%", "97.5%")]
+    if (length(parameter.names)==4)
+    {
+      csp.param[[parameter.names[3]]] <- param.3[,c("AA", "Codon", "Mean", "Std.Dev","2.5%", "97.5%")]
+      csp.param[[parameter.names[4]]] <- param.4[,c("AA", "Codon", "Mean", "Std.Dev","2.5%", "97.5%")]
+    }
   }
   if(is.null(filename))
   {
     return(csp.param)
   }else {
-    write.csv(csp.param[[parameter.names[1]]], file = paste0(filename,"_",parameter.names[1],".csv"), row.names = FALSE, quote=FALSE)
-    write.csv(csp.param[[parameter.names[2]]], file = paste0(filename,"_",parameter.names[2],".csv"), row.names = FALSE, quote=FALSE)
+    if (log.scale)
+    {
+      suffix <- "_log_scale.csv"
+    } else{
+      suffix <- ".csv"
+    }
+    write.csv(csp.param[[parameter.names[1]]], file = paste0(filename,"_",parameter.names[1],suffix), row.names = FALSE, quote=FALSE)
+    write.csv(csp.param[[parameter.names[2]]], file = paste0(filename,"_",parameter.names[2],suffix), row.names = FALSE, quote=FALSE)
+    if (length(parameter.names)==4)
+    {
+      write.csv(csp.param[[parameter.names[3]]], file = paste0(filename,"_",parameter.names[3],suffix), row.names = FALSE, quote=FALSE)
+      write.csv(csp.param[[parameter.names[4]]], file = paste0(filename,"_",parameter.names[4],suffix), row.names = FALSE, quote=FALSE)
+    }
   }
 }
 
@@ -842,23 +840,24 @@ optimalAsReference <- function(param.1,param.2,parameter.names,report.original.r
     ## Create temporary data frames for modifying values
     tmp.1 <- param.1[codons,] ## "Mutation" parameter
     tmp.2 <- param.2[codons,] ## "Selection" parameter
-    current.reference.row <- which(tmp.2[,"Posterior"]==0)
-    optimal.parameter.value <- min(tmp.2[,"Posterior"])
+    current.reference.row <- which(tmp.2[,"Mean"]==0)
+    optimal.parameter.value <- min(tmp.2[,"Mean"])
     ## No reason to do anything if optimal value is 0
     if (optimal.parameter.value != 0.0)
     {
-      tmp.2[,c("Posterior","0.025%","0.975%")] <- tmp.2[,c("Posterior","0.025%","0.975%")] - optimal.parameter.value
+      tmp.2[,c("Mean","2.5%","97.5%")] <- tmp.2[,c("Mean","2.5%","97.5%")] - optimal.parameter.value
       ##Get row of the optimal codon, which should be 0
-      optimal.codon.row <- which(tmp.2[,"Posterior"]==0.0)
-      tmp.2[current.reference.row,c("0.025%","0.975%")] <- tmp.2[optimal.codon.row,c("0.025%","0.975%")] + tmp.2[current.reference.row,"Posterior"]
+      optimal.codon.row <- which(tmp.2[,"Mean"]==0.0)
+      tmp.2[current.reference.row,"Std.Dev"] <- tmp.2[optimal.codon.row,"Std.Dev"]
+      tmp.2[current.reference.row,c("2.5%","97.5%")] <- tmp.2[optimal.codon.row,c("2.5%","97.5%")] + tmp.2[current.reference.row,"Mean"]
       ## Can now change optimal codon values to 0.0
-      tmp.2[optimal.codon.row,c("Posterior","0.025%","0.975%")] <- 0.0
-      
+      tmp.2[optimal.codon.row,c("Mean","Std.Dev","2.5%","97.5%")] <- 0.0
       ## Find corresponding reference value for other parameter
-      optimal.parameter.value <- tmp.1[optimal.codon.row,"Posterior"]
-      tmp.1[,c("Posterior","0.025%","0.975%")] <- tmp.1[,c("Posterior","0.025%","0.975%")] - optimal.parameter.value
-      tmp.1[current.reference.row,c("0.025%","0.975%")] <- tmp.1[optimal.codon.row,c("0.025%","0.975%")] + tmp.1[current.reference.row,"Posterior"]
-      tmp.1[optimal.codon.row,c("Posterior","0.025%","0.975%")] <- 0.0
+      optimal.parameter.value <- tmp.1[optimal.codon.row,"Mean"]
+      tmp.1[current.reference.row,"Std.Dev"] <- tmp.1[optimal.codon.row,"Std.Dev"]
+      tmp.1[,c("Mean","2.5%","97.5%")] <- tmp.1[,c("Mean","2.5%","97.5%")] - optimal.parameter.value
+      tmp.1[current.reference.row,c("2.5%","97.5%")] <- tmp.1[optimal.codon.row,c("2.5%","97.5%")] + tmp.1[current.reference.row,"Mean"]
+      tmp.1[optimal.codon.row,c("Mean","Std.Dev","2.5%","97.5%")] <- 0.0
     }
     if (!report.original.ref)
     {
@@ -870,15 +869,15 @@ optimalAsReference <- function(param.1,param.2,parameter.names,report.original.r
   }
   csp.param <- vector(mode="list",length=2)
   names(csp.param) <- parameter.names
-  csp.param[[parameter.names[1]]] <- updated.param.1[,c("AA", "Codon", "Posterior", "0.025%", "0.975%")]
-  csp.param[[parameter.names[2]]] <- updated.param.2[,c("AA", "Codon", "Posterior", "0.025%", "0.975%")]
+  csp.param[[parameter.names[1]]] <- updated.param.1[,c("AA", "Codon", "Mean","Std.Dev", "2.5%", "97.5%")]
+  csp.param[[parameter.names[2]]] <- updated.param.2[,c("AA", "Codon", "Mean","Std.Dev","2.5%", "97.5%")]
   return(csp.param)
 }
 
 ## NOT EXPOSED
 checkModel <- function(parameter)
 {
-  class.type = class(parameter)
+  class.type <- class(parameter)
   if(class(parameter)=="Rcpp_ROCParameter" || class(parameter)=="Rcpp_FONSEParameter")
   {
     model.uses.ref.codon <- TRUE
@@ -887,12 +886,18 @@ checkModel <- function(parameter)
     aa <- unlist(lapply(codons,codonToAA))
     parameter.names <- c("Mutation","Selection")
     
+  } else if (class(parameter)=="Rcpp_PANSEParameter")
+  {
+    model.uses.ref.codon <- FALSE
+    codons <- parameter$getGroupList()
+    aa <- unlist(lapply(codons,codonToAA))
+    parameter.names <- c("Alpha","Lambda","NSERate","NSEProb")
   } else
   {
     model.uses.ref.codon <- FALSE
     codons <- parameter$getGroupList()
     aa <- unlist(lapply(codons,codonToAA))
-    parameter.names <- c("Alpha","Lambda Prime")
+    parameter.names <- c("Alpha","Lambda_Prime")
   }
   return(list(aa=aa,codons=codons,model.uses.ref.codon=model.uses.ref.codon,parameter.names=parameter.names))
 }
@@ -966,13 +971,14 @@ getSelectionCoefficients <- function(genome, parameter, samples = 100)
 # Delta M is the intercept - and Delta eta is the slope of the regression.
 # The package VGAM is used to perform the regression.
 getCSPbyLogit <- function(codonCounts, phi, coefstart = NULL, x.arg = FALSE, 
-                          y.arg = FALSE, qr.arg = FALSE){
+                          y.arg = FALSE, qr.arg = FALSE)
+{
   #avoid cases with 0 aa count
   idx <- rowSums(codonCounts) != 0
   
   # performs the regression and returns Delta M and Delta eta as well as other information no used here
-  ret <- VGAM::vglm(codonCounts[idx, ] ~ phi[idx],
-                    VGAM::multinomial, coefstart = coefstart,
+  ret <- vglm(codonCounts[idx, ] ~ phi[idx],
+                    multinomial, coefstart = coefstart,
                     x.arg = x.arg, y.arg = y.arg, qr.arg = qr.arg)
   coefficients <- ret@coefficients
   
@@ -1064,7 +1070,8 @@ initializeCovarianceMatrices <- function(parameter, genome, numMixtures, geneAss
   # ct <- getInstance()
   #  names.aa <- ct$getGroupList()
   
-  for(aa in names.aa){
+  for(aa in names.aa)
+  {
     if(aa == "M" || aa == "W" || aa == "X") next
     #should go away when CT is up and running
     
@@ -1074,7 +1081,8 @@ initializeCovarianceMatrices <- function(parameter, genome, numMixtures, geneAss
     # TODO WORKS CURRENTLY ONLY FOR ALLUNIQUE!
     #-----------------------------------------
     covmat <- vector("list", numMixtures)
-    for(mixElement in 1:numMixtures){    
+    for(mixElement in 1:numMixtures)
+    {    
       idx <- geneAssignment == mixElement
       csp <- getCSPbyLogit(codonCounts[idx, ], phi[idx])
       parameter$initMutation(csp$coef.mat[1,], mixElement, aa)
@@ -1087,57 +1095,9 @@ initializeCovarianceMatrices <- function(parameter, genome, numMixtures, geneAss
     parameter$initCovarianceMatrix(compl.covMat, aa)
   }
   
+
   
-  
-  #for(aa in names.aa){
-  # if(aa == "M" || aa == "W" || aa == "X") next
-  #should go away when CT is up and running
-  
-  #codonCounts <- getCodonCountsForAA(aa, genome)
-  #numCodons <- dim(codonCounts)[2] - 1
-  #-----------------------------------------
-  # TODO WORKS CURRENTLY ONLY FOR ALLUNIQUE!
-  #-----------------------------------------
-  # covmat <- vector("list", numMixtures)
-  #for(mixElement in 1:numMixtures){    
-  # idx <- geneAssignment == mixElement
-  #csp <- getCSPbyLogit(codonCounts[idx, ], phi[idx])
-  
-  #   parameter$initMutation(csp$coef.mat[1,], mixElement, aa)
-  #  parameter$initSelection(csp$coef.mat[2,], mixElement, aa)
-  # split matrix into sup matrices (dM and dEta)
-  # covmat[[mixElement]] <- splitMatrix(t(csp$R) %*% csp$R, numCodons, numCodons)  # we expect the covariance matrix, but get the decomposition.
-  #  }
-  # compl.covMat <- matrix(0, ncol = numMixtures * numCodons * 2, nrow = numMixtures * numCodons * 2)
-  #matrix.positions <- subMatrices(compl.covMat, numCodons, numCodons)
-  
-  #compl.seq <- seq(1, dim(compl.covMat)[1], numCodons)
-  #mut.seq <- compl.seq[1:(length(compl.seq)/2)]
-  #i <- 1
-  #for(pos in mut.seq){ 
-  # compl.covMat[matrix.positions == matrix.positions[pos, pos]] <- unlist(covmat[[i]][1])
-  #  i <- i + 1
-  # i <- ifelse(i > numMutationCategory, 1, i)
-  #  }
-  # sel.seq <- compl.seq[(length(compl.seq)/2 + 1):length(compl.seq)]
-  #  i <- 1
-  # for(pos in sel.seq){ 
-  #  compl.covMat[matrix.positions == matrix.positions[pos, pos]] <- unlist(covmat[[i]][4])
-  # i <- i + 1
-  #i <- ifelse(i > numMutationCategory, 1, i)
-  #}
-  
-  #ofdiag.seq <- mut.seq + numCodons*numMutationCategory
-  #for(i in 1:length(mut.seq)){
-  #  compl.covMat[matrix.positions == matrix.positions[mut.seq[i], ofdiag.seq[i]]] <- unlist(covmat[[i]][2])
-  # compl.covMat[matrix.positions == matrix.positions[ofdiag.seq[i], mut.seq[i]]] <- unlist(covmat[[i]][3])
-  #}
-  #for testing - in actuality this is used, it is currently overwriting 
-  #previous steps.
-  #compl.covMat <- diag((numMutationCategory + numSelectionCategory) * numCodons) * 0.05
-  #compl.covMat / max(compl.covMat)
-  #parameter$initCovarianceMatrix(compl.covMat, aa)
-  #}
+ 
   
   return(parameter)
 }
@@ -1208,6 +1168,8 @@ getMixtureAssignmentEstimate <- function(parameter, gene.index, samples)
 #' @param samples number of samples for the posterior estimate
 #'
 #' @param quantiles vector of quantiles, (default: c(0.025, 0.975))
+#'
+#' @param genome if genome is given, then will include gene ids in output (default is NULL)
 #' 
 #' @return returns a vector with the mixture assignment of each gene corresbonding to \code{gene.index} in the same order as the genome. 
 #'
@@ -1244,8 +1206,15 @@ getMixtureAssignmentEstimate <- function(parameter, gene.index, samples)
 #' estimatedExpression <- getExpressionEstimates(parameter, 1:length(genome), 1000)
 #' }
 #' 
-getExpressionEstimates <- function(parameter, gene.index, samples, quantiles=c(0.025, 0.975))
+getExpressionEstimates <- function(parameter, gene.index, samples, quantiles=c(0.025, 0.975),genome=NULL)
 {
+  if (!is.null(genome))
+  {
+    geneID <- unlist(lapply(gene.index, function(geneIndex){
+      gene <- genome$getGeneByIndex(geneIndex,F);
+      gene$id
+      }))
+  }
   expressionValues <- unlist(lapply(gene.index, function(geneIndex){ 
     parameter$getSynthesisRatePosteriorMeanForGene(samples, geneIndex, FALSE) 
   }))
@@ -1256,11 +1225,11 @@ getExpressionEstimates <- function(parameter, gene.index, samples, quantiles=c(0
   
   expressionStdErr <- sqrt(unlist(lapply(gene.index, function(geneIndex){ 
     parameter$getSynthesisRateVarianceForGene(samples, geneIndex, TRUE, FALSE) 
-  }))) / samples
+  })))
   
   expressionStdErrLog <- sqrt(unlist(lapply(gene.index, function(geneIndex){ 
     parameter$getSynthesisRateVarianceForGene(samples, geneIndex, TRUE, TRUE) 
-  }))) / samples
+  })))
   
   expressionQuantile <- lapply(gene.index, function(geneIndex){ 
     parameter$getExpressionQuantile(samples, geneIndex, quantiles, FALSE) 
@@ -1271,9 +1240,14 @@ getExpressionEstimates <- function(parameter, gene.index, samples, quantiles=c(0
     parameter$getExpressionQuantile(samples, geneIndex, quantiles, TRUE) 
   })
   expressionQuantileLog <- do.call(rbind, expressionQuantileLog)
-  
-  expr.mat <- cbind(expressionValues, expressionValuesLog, expressionStdErr, expressionStdErrLog, expressionQuantile, expressionQuantileLog)
-  colnames(expr.mat) <- c("PHI", "log10.PHI", "Std.Error", "log10.Std.Error", quantiles, paste("log10.", quantiles, sep=""))
+  if (is.null(genome))
+  {
+    expr.mat <- cbind(expressionValues, expressionValuesLog, expressionStdErr, expressionStdErrLog, expressionQuantile, expressionQuantileLog)
+    colnames(expr.mat) <- c("Mean", "Mean.log10", "Std.Dev", "log10.Std.Dev", quantiles, paste("log10.", quantiles, sep=""))
+  } else {
+    expr.mat <- cbind(geneID,expressionValues, expressionValuesLog, expressionStdErr, expressionStdErrLog, expressionQuantile, expressionQuantileLog)
+    colnames(expr.mat) <- c("GeneID","Mean", "Mean.log10", "Std.Dev", "log10.Std.Dev", quantiles, paste("log10.", quantiles, sep=""))
+  }
   return(expr.mat)
 }
 
@@ -1333,6 +1307,14 @@ extractBaseInfo <- function(parameter){
   lastIteration <- parameter$getLastIteration()
   grouplist <- parameter$getGroupList()
   
+  synthesisOffsetAcceptRatTrace <- trace$getSynthesisOffsetAcceptanceRateTrace()
+  synthesisOffsetTrace <- trace$getSynthesisOffsetTrace()
+  observedSynthesisNoiseTrace <- trace$getObservedSynthesisNoiseTrace()
+  if (length(synthesisOffsetTrace) == 0){
+    withPhi <- FALSE
+  }else{
+    withPhi <- TRUE
+  }
   
   varList <- list(stdDevSynthesisRateTraces = stdDevSynthesisRateTraces, 
                   stdDevSynthesisRateAcceptRatTrace = stdDevSynthesisRateAcceptRatTrace,
@@ -1347,7 +1329,11 @@ extractBaseInfo <- function(parameter){
                   categories = categories,
                   curMixAssignment = curMixAssignment,
                   lastIteration = lastIteration,
-                  grouplist = grouplist
+                  grouplist = grouplist,
+                  synthesisOffsetTrace = synthesisOffsetTrace,
+                  synthesisOffsetAcceptRatTrace = synthesisOffsetAcceptRatTrace,
+                  observedSynthesisNoiseTrace = observedSynthesisNoiseTrace,
+                  withPhi = withPhi
   )
   return(varList)
 }
@@ -1368,20 +1354,11 @@ writeParameterObject.Rcpp_ROCParameter <- function(parameter, file){
   
   mutationTrace <- trace$getCodonSpecificParameterTrace(0)
   selectionTrace <- trace$getCodonSpecificParameterTrace(1)
-  synthesisOffsetAcceptRatTrace <- trace$getSynthesisOffsetAcceptanceRateTrace()
-  synthesisOffsetTrace <- trace$getSynthesisOffsetTrace()
-  observedSynthesisNoiseTrace <- trace$getObservedSynthesisNoiseTrace()
-  if (length(synthesisOffsetTrace) == 0){
-    withPhi = FALSE
-  }else{
-    withPhi = TRUE
-  }
+  
   
   save(list = c("paramBase", "currentMutation", "currentSelection",
                 "proposedMutation", "proposedSelection", "model",  
-                "mutationPrior", "mutationTrace", "selectionTrace", 
-                "synthesisOffsetAcceptRatTrace", "synthesisOffsetTrace", 
-                "observedSynthesisNoiseTrace", "withPhi"),
+                "mutationPrior", "mutationTrace", "selectionTrace"),
        file=file)
 }
 
@@ -1412,17 +1389,24 @@ writeParameterObject.Rcpp_PANSEParameter <- function(parameter, file){
   
   currentAlpha <- parameter$currentAlphaParameter
   currentLambdaPrime <- parameter$currentLambdaPrimeParameter
+  currentNSERate <- parameter$currentNSERateParameter
   proposedAlpha <- parameter$proposedAlphaParameter
   proposedLambdaPrime <- parameter$proposedLambdaPrimeParameter
-  model = "PANSE"
+  proposedNSERate <- parameter$proposedNSERateParameter
+  model <- "PANSE"
   
   
   trace <- parameter$getTraceObject()
   alphaTrace <- trace$getCodonSpecificParameterTrace(0)
   lambdaPrimeTrace <- trace$getCodonSpecificParameterTrace(1)
+  NSERateTrace <- trace$getCodonSpecificParameterTrace(2)
+  partitionTrace <- trace$getPartitionFunctionTraces()
+  nseSpecificAcceptRatTrace <- trace$getNseRateSpecificAcceptanceRateTrace()
+
+
   
-  save(list = c("paramBase", "currentAlpha", "currentLambdaPrime", "proposedAlpha",
-                "proposedLambdaPrime", "model", "alphaTrace", "lambdaPrimeTrace"),
+  save(list = c("paramBase", "currentAlpha", "currentLambdaPrime", "currentNSERate", "proposedAlpha",
+                "proposedLambdaPrime", "proposedNSERate", "model", "alphaTrace", "lambdaPrimeTrace","NSERateTrace","partitionTrace","nseSpecificAcceptRatTrace"),
        file=file)
 }
 
@@ -1434,6 +1418,8 @@ writeParameterObject.Rcpp_FONSEParameter <- function(parameter, file)
   
   currentMutation <- parameter$currentMutationParameter
   currentSelection <- parameter$currentSelectionParameter
+  proposedMutation <- parameter$proposedMutationParameter
+  proposedSelection <- parameter$proposedSelectionParameter
   
   model = "FONSE"
   mutationPrior <- parameter$getMutationPriorStandardDeviation()
@@ -1442,9 +1428,9 @@ writeParameterObject.Rcpp_FONSEParameter <- function(parameter, file)
   
   mutationTrace <- trace$getCodonSpecificParameterTrace(0)
   selectionTrace <- trace$getCodonSpecificParameterTrace(1)
-  
+  initiationCostTrace <- trace$getInitiationCostTrace()
   save(list = c("paramBase", "currentMutation", "currentSelection",
-                "model","mutationPrior", "mutationTrace", "selectionTrace"),
+                "model","mutationPrior", "mutationTrace", "selectionTrace","initiationCostTrace"),
        file=file)
 }
 
@@ -1546,6 +1532,29 @@ setBaseInfo <- function(parameter, files)
         mixtureProbabilitiesTrace[[j]] <- tempEnv$paramBase$mixProbTrace[[j]][1:max]
       }
       codonSpecificAcceptanceRateTrace <- tempEnv$paramBase$codonSpecificAcceptRatTrace
+
+      withPhi <- tempEnv$paramBase$withPhi
+      if (withPhi){
+        phiGroups <- length(tempEnv$synthesisOffsetTrace)
+        synthesisOffsetTrace <- c()
+        for (j in 1:phiGroups) {
+          synthesisOffsetTrace[[j]] <- tempEnv$paramBase$synthesisOffsetTrace[[j]][1:max]
+        }
+        
+        
+        synthesisOffsetAcceptanceRateTrace <- tempEnv$paramBase$synthesisOffsetAcceptRatTrace
+        
+        
+        observedSynthesisNoiseTrace <- c()
+        for (j in 1:phiGroups) {
+          observedSynthesisNoiseTrace[[j]] <- tempEnv$paramBase$observedSynthesisNoiseTrace[[j]][1:max]
+        }
+        #need number of phi groups, not the number of mixtures apparently.
+      }else {
+        synthesisOffsetTrace <- c()
+        synthesisOffsetAcceptanceRateTrace <- c()
+        observedSynthesisNoiseTrace <- c()
+      }
     } else {
       if (sum(categories.matrix != do.call("rbind", tempEnv$paramBase$categories)) != 0){
         stop("categories is not the same between all files")
@@ -1571,6 +1580,21 @@ setBaseInfo <- function(parameter, files)
       if(length(grouplist) != length(tempEnv$paramBase$grouplist)){
         stop("Number of Amino Acids/Codons is not the same between files.")	
       }
+      if (withPhi != tempEnv$paramBase$withPhi){
+        stop("Runs do not match in concern in with.phi")
+      }
+      
+      curSynthesisOffsetTrace <- tempEnv$paramBase$synthesisOffsetTrace
+      curSynthesisOffsetAcceptanceRateTrace <- tempEnv$paramBase$synthesisOffsetAcceptRatTrace
+      curObservedSynthesisNoiseTrace <- tempEnv$paramBase$observedSynthesisNoiseTrace
+      
+      if (withPhi){
+        combineTwoDimensionalTrace(synthesisOffsetTrace, curSynthesisOffsetTrace, max)
+        size <- length(curSynthesisOffsetAcceptanceRateTrace)
+        combineTwoDimensionalTrace(synthesisOffsetAcceptanceRateTrace, curSynthesisOffsetAcceptanceRateTrace, size)
+        combineTwoDimensionalTrace(observedSynthesisNoiseTrace, curObservedSynthesisNoiseTrace, max)
+      }
+
       
       curStdDevSynthesisRateTraces <- tempEnv$paramBase$stdDevSynthesisRateTraces
       curStdDevSynthesisRateAcceptanceRateTrace <- tempEnv$paramBase$stdDevSynthesisRateAcceptRatTrace
@@ -1617,6 +1641,9 @@ setBaseInfo <- function(parameter, files)
   trace$setStdDevSynthesisRateAcceptanceRateTrace(stdDevSynthesisRateAcceptanceRateTrace)
   trace$setSynthesisRateTrace(synthesisRateTrace)
   trace$setSynthesisRateAcceptanceRateTrace(synthesisRateAcceptanceRateTrace)
+  trace$setSynthesisOffsetTrace(synthesisOffsetTrace)
+  trace$setSynthesisOffsetAcceptanceRateTrace(synthesisOffsetAcceptanceRateTrace)
+  trace$setObservedSynthesisNoiseTrace(observedSynthesisNoiseTrace)
   trace$setMixtureAssignmentTrace(mixtureAssignmentTrace)
   trace$setMixtureProbabilitiesTrace(mixtureProbabilitiesTrace)
   trace$setCodonSpecificAcceptanceRateTrace(codonSpecificAcceptanceRateTrace)
@@ -1639,73 +1666,34 @@ loadROCParameterObject <- function(parameter, files)
     max <- tempEnv$paramBase$lastIteration + 1
     
     if (i == 1){
-      withPhi <- tempEnv$withPhi
-      if (withPhi){
-        phiGroups <- length(tempEnv$synthesisOffsetTrace)
-        synthesisOffsetTrace <- c()
-        for (j in 1:phiGroups) {
-          synthesisOffsetTrace[[j]] <- tempEnv$synthesisOffsetTrace[[j]][1:max]
-        }
-        
-        
-        synthesisOffsetAcceptanceRateTrace <- tempEnv$synthesisOffsetAcceptRatTrace
-        
-        
-        observedSynthesisNoiseTrace <- c()
-        for (j in 1:phiGroups) {
-          observedSynthesisNoiseTrace[[j]] <- tempEnv$observedSynthesisNoiseTrace[[j]][1:max]
-        }
-        #need number of phi groups, not the number of mixtures apparently.
-      }else {
-        synthesisOffsetTrace <- c()
-        synthesisOffsetAcceptanceRateTrace <- c()
-        observedSynthesisNoiseTrace <- c()
-      }
+     
       
       codonSpecificParameterTraceMut <- vector("list", length=numMutationCategories)
       for (j in 1:numMutationCategories) {
         codonSpecificParameterTraceMut[[j]] <- vector("list", length=length(tempEnv$mutationTrace[[j]]))
         for (k in 1:length(tempEnv$mutationTrace[[j]])){
           codonSpecificParameterTraceMut[[j]][[k]] <- tempEnv$mutationTrace[[j]][[k]][1:max]
-          #codonSpecificParameterTraceSel[[j]][[k]] <- tempEnv$selectionTrace[[j]][[k]][1:max]
-        }
+         }
       }
       
       codonSpecificParameterTraceSel <- vector("list", length=numSelectionCategories)
       for (j in 1:numSelectionCategories) {
         codonSpecificParameterTraceSel[[j]] <- vector("list", length=length(tempEnv$selectionTrace[[j]]))
         for (k in 1:length(tempEnv$selectionTrace[[j]])){
-          #codonSpecificParameterTraceMut[[j]][[k]] <- tempEnv$mutationTrace[[j]][[k]][1:max]
           codonSpecificParameterTraceSel[[j]][[k]] <- tempEnv$selectionTrace[[j]][[k]][1:max]
         }
       }
     }else{
-      curSynthesisOffsetTrace <- tempEnv$synthesisOffsetTrace
-      curSynthesisOffsetAcceptanceRateTrace <- tempEnv$synthesisOffsetAcceptRatTrace
-      curObservedSynthesisNoiseTrace <- tempEnv$observedSynthesisNoiseTrace
+      
       curCodonSpecificParameterTraceMut <- tempEnv$mutationTrace
       curCodonSpecificParameterTraceSel <- tempEnv$selectionTrace
-      if (withPhi != tempEnv$withPhi){
-        stop("Runs do not match in concern in with.phi")
-      }
-      
-      
-      if (withPhi){
-        combineTwoDimensionalTrace(synthesisOffsetTrace, curSynthesisOffsetTrace, max)
-        size <- length(curSynthesisOffsetAcceptanceRateTrace)
-        combineTwoDimensionalTrace(synthesisOffsetAcceptanceRateTrace, curSynthesisOffsetAcceptanceRateTrace, size)
-        combineTwoDimensionalTrace(observedSynthesisNoiseTrace, curObservedSynthesisNoiseTrace, max)
-      }
-      
       combineThreeDimensionalTrace(codonSpecificParameterTraceMut, curCodonSpecificParameterTraceMut, max)
       combineThreeDimensionalTrace(codonSpecificParameterTraceSel, curCodonSpecificParameterTraceSel, max)
     }#end of if-else
   }#end of for loop (files)
   
   trace <- parameter$getTraceObject()
-  trace$setSynthesisOffsetTrace(synthesisOffsetTrace)
-  trace$setSynthesisOffsetAcceptanceRateTrace(synthesisOffsetAcceptanceRateTrace)
-  trace$setObservedSynthesisNoiseTrace(observedSynthesisNoiseTrace)
+  
   trace$setCodonSpecificParameterTrace(codonSpecificParameterTraceMut, 0)
   trace$setCodonSpecificParameterTrace(codonSpecificParameterTraceSel, 1)
   
@@ -1784,7 +1772,8 @@ loadPANSEParameterObject <- function(parameter, files)
     numMutationCategories <- tempEnv$paramBase$numMut
     numSelectionCategories <- tempEnv$paramBase$numSel
     
-    if (i == 1){
+    if (i == 1)
+    {
       #for future use: This may break if PANSE is ran with more than
       #one mixture, in this case just follow the format of the 
       #ROC CSP parameters.
@@ -1800,13 +1789,26 @@ loadPANSEParameterObject <- function(parameter, files)
           lambdaPrimeTrace[[j]][[k]] <- tempEnv$lambdaPrimeTrace[[j]][[k]][1:max]
         }
       }
+      NSERateTrace <- vector("list", length=numMutationCategories)
+      for (j in 1:numMutationCategories) {
+        for (k in 1:length(tempEnv$NSERateTrace[[j]])){
+          NSERateTrace[[j]][[k]] <- tempEnv$NSERateTrace[[j]][[k]][1:max]
+        }
+      }
+      partitionTrace <- vector("list", length = numSelectionCategories)
+      for (j in 1:numSelectionCategories) {
+        partitionTrace[[j]] <- tempEnv$partitionTrace[[j]][1:max]
+      }
+      nseSpecificAcceptanceRateTrace <- tempEnv$nseSpecificAcceptRatTrace
     }else{
       
       curAlphaTrace <- tempEnv$alphaTrace
       curLambdaPrimeTrace <- tempEnv$lambdaPrimeTrace
-      
+      curNSERateTrace <- tempEnv$NSERateTrace
+
       combineThreeDimensionalTrace(alphaTrace, curAlphaTrace, max)
       combineThreeDimensionalTrace(lambdaPrimeTrace, curLambdaPrimeTrace, max)
+      combineThreeDimensionalTrace(NSERateTrace, curNSERateTrace, max)
     }
   }#end of for loop (files)
   
@@ -1815,10 +1817,15 @@ loadPANSEParameterObject <- function(parameter, files)
   parameter$proposedAlphaParameter <- tempEnv$proposedAlpha
   parameter$currentLambdaPrimeParameter <- tempEnv$currentLambdaPrime
   parameter$proposedLambdaPrimeParameter <- tempEnv$proposedLambdaPrime
+  parameter$proposedNSERateParameter <- tempEnv$proposedNSERate
+  parameter$currentNSERateParameter <- tempEnv$currentNSERate
   trace <- parameter$getTraceObject()
+  trace$resizeNumberCodonSpecificParameterTrace(3)
   trace$setCodonSpecificParameterTrace(alphaTrace, 0)
   trace$setCodonSpecificParameterTrace(lambdaPrimeTrace, 1)
-  
+  trace$setCodonSpecificParameterTrace(NSERateTrace,2)
+  trace$setNseRateSpecificAcceptanceRateTrace(nseSpecificAcceptanceRateTrace)
+  trace$setPartitionFunctionTraces(partitionTrace)
   parameter$setTraceObject(trace)
   return(parameter) 
 }
@@ -1855,6 +1862,7 @@ loadFONSEParameterObject <- function(parameter, files)
           codonSpecificParameterTraceSel[[j]][[k]] <- tempEnv$selectionTrace[[j]][[k]][1:max]
         }
       }
+
       
     }else{
       curCodonSpecificParameterTraceMut <- tempEnv$mutationTrace
@@ -1869,9 +1877,12 @@ loadFONSEParameterObject <- function(parameter, files)
   trace <- parameter$getTraceObject()
   trace$setCodonSpecificParameterTrace(codonSpecificParameterTraceMut, 0)
   trace$setCodonSpecificParameterTrace(codonSpecificParameterTraceSel, 1)
-  
+  trace$setInitiationCostTrace(tempEnv$initiationCostTrace)
+
   parameter$currentMutationParameter <- tempEnv$currentMutation
   parameter$currentSelectionParameter <- tempEnv$currentSelection
+  ##parameter$proposedMutationParameter <- tempEnv$proposedMutation
+  ##parameter$proposedSelectionParameter <- tempEnv$proposedSelection
   parameter$setTraceObject(trace)
   return(parameter)  
 }
@@ -1924,11 +1935,25 @@ geomMean <- function(x, rm.invalid = TRUE, default = 1e-5)
 #Intended to combine 2D traces (vector of vectors) read in from C++. The first
 #element of the second trace is omited since it should be the same as the 
 #last value of the first trace.
-combineTwoDimensionalTrace <- function(trace1, trace2, max){
+combineTwoDimensionalTrace <- function(trace1, trace2,start=2,end=NULL){
+  if(start < 2)
+  {
+    print("Start must be at least 2 because the last element of first trace is first of second trace. Setting start = 2.")
+  }
+  if(end <= start)
+  {
+    print("End must be greater than start. Setting end to length of trace2.")
+    end <- trace2
+  }
+  if(end == NULL)
+  {
+    end <- length(trace2)
+  }
   for (size in 1:length(trace1))
   {
-    trace1[[size]]<- c(trace1[[size]], trace2[[size]][2:max])
+    trace1[[size]]<- c(trace1[[size]], trace2[[size]][start:end])
   }
+  return(trace1)
 }
 
 

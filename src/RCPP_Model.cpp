@@ -13,6 +13,11 @@ void roc_finalizer(ROCModel* m)
 }
 */
 
+//' @name simulateGenome
+//' @title simulateGenome
+//' @description Method of Model class (access via model$<function name>, where model is an object initialized by initializeModelObject). Will simulate a version of the given genome using the current set of parameters stored in the Parameter object. This can be written to a FASTA file using genome$writeFasta(<filename>,simulated = TRUE).
+//' @param genome a Genome object initialized by initializeGenomeObject
+
 RCPP_EXPOSED_CLASS(ROCParameter)
 RCPP_EXPOSED_CLASS(PAParameter)
 RCPP_EXPOSED_CLASS(PANSEParameter)
@@ -37,7 +42,7 @@ RCPP_MODULE(Model_mod)
 	
 	class_<PAModel>("PAModel")
 		.derives<Model>("Model")
-		.constructor<unsigned>()
+		.constructor<unsigned,bool, bool>()
   		.method("getParameter", &PAModel::getParameter)
 		.method("setParameter", &PAModel::setParameter)
 		.method("simulateGenome", &PAModel::simulateGenome)
@@ -45,7 +50,7 @@ RCPP_MODULE(Model_mod)
 	
     class_<PANSEModel>("PANSEModel")
 		.derives<Model>("Model")
-		.constructor<unsigned>()
+		.constructor<unsigned,bool, bool>()
   		.method("getParameter", &PANSEModel::getParameter)
 		.method("setParameter", &PANSEModel::setParameter)
 		.method("simulateGenome", &PANSEModel::simulateGenome)
@@ -53,7 +58,9 @@ RCPP_MODULE(Model_mod)
 
 	class_<FONSEModel>("FONSEModel")
 		.derives<Model>("Model")
-		.constructor()
+		.constructor<bool, bool>()
+		.method("CalculateProbabilitiesForCodons", &FONSEModel::CalculateProbabilitiesForCodons,
+		        "Calculated codon probabilities. Input is one element shorter than output")
   		.method("getParameter", &FONSEModel::getParameter)
 		.method("setParameter", &FONSEModel::setParameter)
 		.method("simulateGenome", &FONSEModel::simulateGenome)
